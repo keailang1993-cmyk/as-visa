@@ -1,0 +1,1 @@
+-- Placeholder for Supabase rule_engine schema.

@@ -1,0 +1,14 @@
+{
+  "name": "@as-visa/customer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@as-visa/ui": "file:../../packages/ui"
+  }
+}

@@ -1,0 +1,1 @@
+-- Placeholder for Supabase document_blocks schema.
