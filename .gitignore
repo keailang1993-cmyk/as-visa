@@ -17,5 +17,6 @@ test-results/
 .vscode/
 .npmrc
 .env
+.env.local
 .env.*
 !.env.example
