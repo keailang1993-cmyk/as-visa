@@ -6,21 +6,21 @@ import styles from "./notifications.module.css";
 const notifications = [
   {
     id: "advisor-updated-progress",
-    title: "Advisor Updated Progress",
-    description: "Your application timeline has been updated.",
-    meta: "Just now"
+    title: "顾问已更新进度",
+    description: "您的办理进度已更新。",
+    meta: "刚刚"
   },
   {
     id: "need-additional-documents",
-    title: "Need Additional Documents",
-    description: "Your advisor may request one more supporting document.",
-    meta: "12 minutes ago"
+    title: "需要补充资料",
+    description: "顾问可能会请您补充一份辅助材料。",
+    meta: "12 分钟前"
   },
   {
     id: "passport-approved",
-    title: "Passport Approved",
-    description: "Your passport upload has passed review.",
-    meta: "Today"
+    title: "护照资料已通过",
+    description: "您上传的护照资料已通过初步检查。",
+    meta: "今天"
   }
 ];
 
@@ -30,11 +30,11 @@ export default function NotificationsPage() {
       <Card className={styles.card}>
         <section className={styles.notifications} aria-labelledby="notifications-title">
           <div className={styles.header}>
-            <p className="noir-micro">Notifications</p>
+            <p className="noir-micro">通知中心</p>
             <h1 className={styles.title} id="notifications-title">
-              Notification Center
+              最新通知
             </h1>
-            <p className="noir-description">Newest updates appear first.</p>
+            <p className="noir-description">最新进展会优先显示。</p>
           </div>
           <div className={styles.list}>
             {notifications.map((notification) => (

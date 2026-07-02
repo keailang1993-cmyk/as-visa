@@ -10,9 +10,9 @@ import {
 import styles from "./profile.module.css";
 
 const profile = {
-  name: "AS VISA Applicant",
-  visaProduct: "Visitor Visa",
-  phone: "Verified phone number",
+  name: "签证申请人",
+  visaProduct: "旅游签证",
+  phone: "已验证手机号",
   progress: 72
 };
 
@@ -24,7 +24,7 @@ export default function ProfilePage() {
           <div className={styles.identity}>
             <Avatar name={profile.name} size="lg" />
             <div className={styles.identityText}>
-              <p className="noir-micro">User Profile</p>
+              <p className="noir-micro">个人资料</p>
               <h1 className={styles.title} id="profile-title">
                 {profile.name}
               </h1>
@@ -33,22 +33,22 @@ export default function ProfilePage() {
         </Card>
 
         <div className={styles.grid}>
-          <ProfileCard title="Visa Product" description={profile.visaProduct} />
-          <ProfileCard title="Phone" description={profile.phone} />
+          <ProfileCard title="签证产品" description={profile.visaProduct} />
+          <ProfileCard title="手机号" description={profile.phone} />
           <Card>
             <div className="noir-stack">
               <div className="noir-between">
                 <div>
-                  <p className="noir-micro">Current Progress</p>
-                  <h2 className="noir-title">Advisor Review</h2>
+                  <p className="noir-micro">当前进度</p>
+                  <h2 className="noir-title">顾问审核中</h2>
                 </div>
                 <StatusBadge status="active" />
               </div>
-              <MissionProgress value={profile.progress} label={`${profile.progress}% complete`} />
+              <MissionProgress value={profile.progress} label={`已完成 ${profile.progress}%`} />
             </div>
           </Card>
-          <ProfileCard title="Support" description="Your advisor is available for document questions." />
-          <ProfileCard title="Settings" description="Notification and account preferences." />
+          <ProfileCard title="客服支持" description="如资料有疑问，您的顾问会协助处理。" />
+          <ProfileCard title="设置" description="通知和账户偏好设置。" />
         </div>
       </section>
     </main>

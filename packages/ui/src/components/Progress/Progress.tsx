@@ -4,7 +4,14 @@ import type { NoirStatus, StepItem } from "../../types";
 import { Card } from "../Cards";
 
 export function StatusBadge({ status = "idle" }: { status?: NoirStatus }) {
-  return <span className="noir-badge">{status}</span>;
+  const labels: Record<NoirStatus, string> = {
+    active: "进行中",
+    blocked: "需处理",
+    complete: "已完成",
+    idle: "未开始"
+  };
+
+  return <span className="noir-badge">{labels[status]}</span>;
 }
 
 export function Timeline({ steps }: { steps: StepItem[] }) {
@@ -36,7 +43,7 @@ export function MissionProgress({ value, label }: { value: number; label?: strin
 }
 
 export function StepIndicator({ current, total }: { current: number; total: number }) {
-  return <span className="noir-badge">Step {current} of {total}</span>;
+  return <span className="noir-badge">第 {current} 步 / 共 {total} 步</span>;
 }
 
 export function CompletionCard({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {

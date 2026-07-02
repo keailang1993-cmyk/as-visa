@@ -6,7 +6,7 @@ import { AIThinking, Card, StatusBadge } from "@as-visa/ui";
 import { getCurrentMission, missionFlow, setStoredMissionIndex } from "../lib/missionFlow";
 import styles from "./ai-review.module.css";
 
-const baseReviewStates = ["Reviewing...", "Checking validity...", "Checking completeness...", "Review Complete."] as const;
+const baseReviewStates = ["正在检查资料...", "正在检查有效期", "正在检查完整性", "初步检查完成"] as const;
 
 export default function AIReviewPage() {
   const router = useRouter();
@@ -47,11 +47,11 @@ export default function AIReviewPage() {
       <Card className={styles.card}>
         <section className={styles.review} aria-labelledby="ai-review-title">
           <div className={styles.header}>
-            <p className="noir-micro">AI Review</p>
+            <p className="noir-micro">AI 初步检查</p>
             <StatusBadge status={isComplete ? "complete" : "active"} />
           </div>
           <h1 className={styles.title} id="ai-review-title">
-            {currentMission.isComplete ? "Review complete" : `Reviewing ${currentMission.mission.title.replace("Upload ", "").toLowerCase()}`}
+            {currentMission.isComplete ? "初步检查完成" : `正在检查${currentMission.mission.documentName}`}
           </h1>
           <div aria-live="polite" className={styles.state} key={reviewStates[step]}>
             {isComplete ? <span>{reviewStates[step]}</span> : <AIThinking label={reviewStates[step]} />}

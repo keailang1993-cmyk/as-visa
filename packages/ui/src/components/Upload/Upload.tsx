@@ -62,7 +62,7 @@ export function DocumentPreview({
   children,
   name,
   onRemove,
-  removeLabel = "Remove"
+  removeLabel = "移除"
 }: {
   children?: ReactNode;
   name: string;
@@ -103,6 +103,6 @@ export function OCRResult({ title, fields }: { title: string; fields: Array<{ la
   );
 }
 
-export function RetryUpload({ onRetry }: { onRetry?: () => void }) {
-  return <Button onClick={onRetry} variant="secondary">Retry upload</Button>;
+export function RetryUpload({ label = "重新上传", onRetry }: { label?: string; onRetry?: () => void }) {
+  return <Button onClick={onRetry} variant="secondary">{label}</Button>;
 }

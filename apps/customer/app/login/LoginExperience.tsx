@@ -11,18 +11,18 @@ export function LoginExperience() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("Enter the phone number connected to your visa case.");
+  const [message, setMessage] = useState("请输入与签证订单绑定的手机号。");
 
   const canSubmit = phone.trim().length >= 7 && code.length === 6;
 
   function handleSubmit() {
     if (!canSubmit) {
-      setMessage("Enter your phone number and the 6 digit SMS code.");
+      setMessage("请输入手机号和 6 位短信验证码。");
       return;
     }
 
     setIsLoading(true);
-    setMessage("Verifying secure access.");
+    setMessage("正在验证登录信息。");
 
     window.setTimeout(() => {
       setStoredMissionIndex(0);
@@ -40,9 +40,9 @@ export function LoginExperience() {
         <div className={styles.copy}>
           <p className="noir-micro">AS VISA</p>
           <h1 className={styles.title} id="login-title">
-            Continue your mission.
+            欢迎回来
           </h1>
-          <p className={styles.description}>Use your phone number and SMS verification code.</p>
+          <p className={styles.description}>请使用手机号登录，继续完成您的签证办理。</p>
         </div>
 
         <Card className={styles.panel}>
@@ -55,14 +55,14 @@ export function LoginExperience() {
           >
             <PhoneInput
               autoFocus
-              label="Phone number"
+              label="手机号"
               onChange={(event) => setPhone(event.target.value)}
-              placeholder="Enter phone number"
+              placeholder="请输入手机号"
               value={phone}
             />
-            <OTPInput label="SMS verification code" onChange={setCode} value={code} />
+            <OTPInput label="短信验证码" onChange={setCode} value={code} />
             <Button disabled={!canSubmit} loading={isLoading} type="submit">
-              Continue
+              继续办理
             </Button>
             <p aria-live="polite" className={styles.message}>
               {message}

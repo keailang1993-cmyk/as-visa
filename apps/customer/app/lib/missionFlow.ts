@@ -1,29 +1,34 @@
 export const missionStorageKey = "as-visa-current-mission-index";
 
+// This is MVP mock data.
+// Later it will be replaced by Rule Engine generated document checklist.
 export const missionFlow = [
   {
-    title: "Upload Passport",
-    uploadTitle: "Passport photo",
-    uploadDescription: "Use your camera or upload a clear passport photo.",
-    guide: "Place the passport on a flat surface with all corners visible.",
-    detectedLabel: "Passport detected.",
-    successTitle: "Passport uploaded"
+    title: "上传护照",
+    documentName: "护照",
+    uploadTitle: "请上传护照",
+    uploadDescription: "请确保照片清晰、四角完整、没有反光。",
+    guide: "请将护照平放，确保整页信息完整清晰。",
+    detectedLabel: "已识别护照",
+    successTitle: "护照已收到，正在准备初步检查。"
   },
   {
-    title: "Upload ID",
-    uploadTitle: "ID photo",
-    uploadDescription: "Use your camera or upload a clear ID photo.",
-    guide: "Keep the full ID inside the frame with text readable.",
-    detectedLabel: "ID detected.",
-    successTitle: "ID uploaded"
+    title: "上传身份证",
+    documentName: "身份证",
+    uploadTitle: "请上传身份证",
+    uploadDescription: "请确保身份证信息清晰、边缘完整、没有遮挡。",
+    guide: "请将身份证放在平整表面，确保文字清楚可读。",
+    detectedLabel: "已识别身份证",
+    successTitle: "身份证已收到，正在准备初步检查。"
   },
   {
-    title: "Upload Bank",
-    uploadTitle: "Bank statement",
-    uploadDescription: "Upload a clear bank statement photo or PDF.",
-    guide: "Make sure name, bank, and recent transactions are visible.",
-    detectedLabel: "Bank statement detected.",
-    successTitle: "Bank statement uploaded"
+    title: "上传银行流水",
+    documentName: "银行流水",
+    uploadTitle: "请上传银行流水",
+    uploadDescription: "请上传清晰的银行流水照片或 PDF 文件。",
+    guide: "请确保姓名、银行名称和近期交易记录清晰可见。",
+    detectedLabel: "已识别银行流水",
+    successTitle: "银行流水已收到，正在准备初步检查。"
   }
 ] as const;
 

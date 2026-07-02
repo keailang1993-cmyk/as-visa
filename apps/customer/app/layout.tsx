@@ -5,12 +5,12 @@ import "./styles.css";
 
 export const metadata: Metadata = {
   title: "AS VISA",
-  description: "AI-first visa delivery platform"
+  description: "AI 签证办理服务平台"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body>{children}</body>
     </html>
   );
