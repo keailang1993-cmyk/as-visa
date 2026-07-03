@@ -7,65 +7,119 @@
   padding: var(--noir-space-8);
 }
 
-.card {
+.phone {
   animation: completion-enter var(--noir-motion-base) var(--noir-motion-ease-enter) both;
-  border-color: rgb(0 0 0 / 0.06);
+  background: var(--noir-color-background);
+  border: var(--noir-space-px) solid rgb(0 0 0 / 0.06);
+  border-radius: 2rem;
   box-shadow: 0 18px 60px rgb(0 0 0 / 0.08);
+  display: flex;
+  flex-direction: column;
   min-height: min(46.25rem, calc(100vh - var(--noir-space-16)));
-  padding: 2rem 1.5rem;
-  width: min(22.75rem, calc(100vw - var(--noir-space-8)));
+  overflow: hidden;
+  padding: 1.25rem 1.5rem 2rem;
+  position: relative;
+  width: min(24.375rem, calc(100vw - var(--noir-space-8)));
+}
+
+.statusBar {
+  align-items: center;
+  display: flex;
+  font: 600 0.8125rem/1 var(--noir-font-sans);
+  justify-content: space-between;
+  min-height: 1.25rem;
+}
+
+.statusIcons {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.3125rem;
+}
+
+.statusIcons span:first-child {
+  background:
+    linear-gradient(to top, var(--noir-color-foreground) 0.1875rem, transparent 0) 0 100% / 0.1875rem 0.5rem no-repeat,
+    linear-gradient(to top, var(--noir-color-foreground) 0.3125rem, transparent 0) 0.25rem 100% / 0.1875rem 0.5rem no-repeat,
+    linear-gradient(to top, var(--noir-color-foreground) 0.4375rem, transparent 0) 0.5rem 100% / 0.1875rem 0.5rem no-repeat;
+  display: block;
+  height: 0.5rem;
+  width: 0.6875rem;
+}
+
+.statusIcons span:nth-child(2) {
+  border: 0.09375rem solid var(--noir-color-foreground);
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-radius: var(--noir-radius-full);
+  display: block;
+  height: 0.5625rem;
+  transform: rotate(-45deg);
+  width: 0.5625rem;
+}
+
+.statusIcons span:last-child {
+  border: var(--noir-space-px) solid var(--noir-color-foreground);
+  border-radius: 0.1875rem;
+  display: block;
+  height: 0.5rem;
+  position: relative;
+  width: 1rem;
+}
+
+.statusIcons span:last-child::after {
+  background: var(--noir-color-foreground);
+  border-radius: var(--noir-radius-full);
+  content: "";
+  height: 0.25rem;
+  position: absolute;
+  right: 0.125rem;
+  top: 0.125rem;
+  width: 0.625rem;
 }
 
 .completion {
-  display: flex;
-  flex-direction: column;
-  gap: var(--noir-space-8);
-  min-height: calc(min(46.25rem, calc(100vh - var(--noir-space-16))) - 4rem);
-}
-
-.message {
   align-items: center;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--noir-space-5);
-  margin-top: auto;
+  justify-content: center;
   text-align: center;
 }
 
-.message svg {
+.iconWrap {
+  align-items: center;
   background: var(--noir-color-foreground);
   border-radius: var(--noir-radius-full);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.12);
   color: var(--noir-color-inverse-foreground);
-  height: 4rem;
-  padding: 1.25rem;
-  width: 4rem;
-}
-
-.reviewTime {
-  border-top: var(--noir-space-px) solid var(--noir-color-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--noir-space-3);
-  padding-top: var(--noir-space-5);
-  text-align: center;
+  display: inline-flex;
+  height: 5rem;
+  justify-content: center;
+  width: 5rem;
 }
 
 .title {
-  font: 600 1.75rem/1.2 var(--noir-font-sans);
+  font: 700 1.75rem/1.18 var(--noir-font-sans);
   letter-spacing: 0;
-  margin: 0;
+  margin: var(--noir-space-8) 0 0;
 }
 
-.time {
-  color: var(--noir-color-foreground);
-  font: var(--noir-text-subtitle);
-  margin: 0;
+.description {
+  color: var(--noir-color-muted);
+  font: var(--noir-text-body);
+  margin: var(--noir-space-4) 0 0;
 }
 
 .cta {
   height: 3rem;
-  margin-top: auto;
   width: 100%;
+}
+
+.secondaryText {
+  color: var(--noir-color-muted);
+  font: var(--noir-text-caption);
+  margin: var(--noir-space-4) 0 0;
+  text-align: center;
 }
 
 @media (max-width: 420px) {
@@ -74,7 +128,7 @@
     padding: 0;
   }
 
-  .card {
+  .phone {
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -84,7 +138,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card {
+  .phone {
     animation: none;
   }
 }
@@ -92,7 +146,7 @@
 @keyframes completion-enter {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: scale(0.985);
   }
 
   to {

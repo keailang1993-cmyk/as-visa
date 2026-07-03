@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Timeline } from "@as-visa/ui";
+import { Bell, Check, ClipboardCheck, Clock, Home, MessageCircle, User } from "@as-visa/ui";
 import styles from "./progress.module.css";
 
 const progressSteps = [
@@ -44,18 +44,50 @@ const progressSteps = [
 export default function ProgressPage() {
   return (
     <main className={`${styles.page} noir-scope`}>
-      <Card className={styles.card}>
-        <section className={styles.progress} aria-labelledby="progress-title">
-          <div className={styles.header}>
-            <p className="noir-micro">办理进度</p>
-            <h1 className={styles.title} id="progress-title">
-              顾问审核中
-            </h1>
-            <p className="noir-description">预计今天 18:00 前完成审核</p>
-          </div>
-          <Timeline steps={progressSteps} />
+      <section className={styles.phone} aria-labelledby="progress-title">
+        <div className={styles.statusBar} aria-hidden="true">
+          <span>9:41</span>
+          <span className={styles.statusIcons}><span /><span /><span /></span>
+        </div>
+
+        <div className={styles.header}>
+          <p className={styles.brand}>AS VISA</p>
+          <button aria-label="通知" className={styles.iconButton} type="button">
+            <Bell size={18} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <section className={styles.hero}>
+          <p className={styles.kicker}>办理进度</p>
+          <h1 className={styles.title} id="progress-title">办理进度</h1>
+          <p className={styles.description}>有新的进展，我们会第一时间通知您。</p>
         </section>
-      </Card>
+
+        <section className={styles.statusCard}>
+          <p>当前状态</p>
+          <h2>顾问审核中</h2>
+          <span>预计今天 18:00 前完成</span>
+        </section>
+
+        <section className={styles.timeline} aria-label="办理时间线">
+          {progressSteps.map((step) => (
+            <div className={styles.timelineItem} key={step.id}>
+              <span className={step.status === "complete" ? styles.doneIcon : styles.waitIcon}>
+                {step.status === "complete" ? <Check size={14} strokeWidth={2.6} /> : <Clock size={14} strokeWidth={1.8} />}
+              </span>
+              <strong>{step.label}</strong>
+              <em>{step.status === "complete" ? "已完成" : step.status === "active" ? "进行中" : "未开始"}</em>
+            </div>
+          ))}
+        </section>
+
+        <nav className={styles.bottomNav} aria-label="主导航">
+          <span className={styles.navItem}><Home size={19} />首页</span>
+          <span className={styles.navItemActive}><ClipboardCheck size={19} fill="currentColor" />进度</span>
+          <span className={styles.navItem}><MessageCircle size={19} />消息</span>
+          <span className={styles.navItem}><User size={19} />我的</span>
+        </nav>
+      </section>
     </main>
   );
 }
