@@ -8,9 +8,8 @@
 }
 
 .card {
-  animation: mission-enter var(--noir-motion-slow) var(--noir-motion-ease-enter) both;
-  max-width: 30rem;
-  padding: var(--noir-space-8);
+  animation: mission-enter var(--noir-motion-base) var(--noir-motion-ease-enter) both;
+  max-width: 34rem;
   width: 100%;
 }
 
@@ -23,7 +22,7 @@
 }
 
 .title {
-  font: var(--noir-text-display);
+  font: var(--noir-text-title);
   letter-spacing: 0;
   margin: 0;
 }
@@ -44,9 +43,6 @@
     padding: var(--noir-space-4);
   }
 
-  .card {
-    padding: var(--noir-space-6);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -58,11 +54,11 @@
 @keyframes mission-enter {
   from {
     opacity: 0;
-    transform: translateY(var(--noir-space-3));
+    transform: scale(0.98);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
