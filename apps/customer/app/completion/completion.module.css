@@ -4,27 +4,41 @@
   display: flex;
   justify-content: center;
   min-height: 100vh;
-  padding: var(--noir-space-6);
+  padding: var(--noir-space-8);
 }
 
 .card {
   animation: completion-enter var(--noir-motion-base) var(--noir-motion-ease-enter) both;
-  max-width: 34rem;
-  width: 100%;
+  border-color: rgb(0 0 0 / 0.06);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.08);
+  min-height: min(46.25rem, calc(100vh - var(--noir-space-16)));
+  padding: 2rem 1.5rem;
+  width: min(22.75rem, calc(100vw - var(--noir-space-8)));
 }
 
 .completion {
   display: flex;
   flex-direction: column;
-  gap: var(--noir-space-6);
+  gap: var(--noir-space-8);
+  min-height: calc(min(46.25rem, calc(100vh - var(--noir-space-16))) - 4rem);
 }
 
 .message {
   align-items: center;
   display: flex;
   flex-direction: column;
-  gap: var(--noir-space-4);
+  gap: var(--noir-space-5);
+  margin-top: auto;
   text-align: center;
+}
+
+.message svg {
+  background: var(--noir-color-foreground);
+  border-radius: var(--noir-radius-full);
+  color: var(--noir-color-inverse-foreground);
+  height: 4rem;
+  padding: 1.25rem;
+  width: 4rem;
 }
 
 .reviewTime {
@@ -37,7 +51,7 @@
 }
 
 .title {
-  font: var(--noir-text-title);
+  font: 600 1.75rem/1.2 var(--noir-font-sans);
   letter-spacing: 0;
   margin: 0;
 }
@@ -49,15 +63,24 @@
 }
 
 .cta {
-  align-self: center;
-  min-width: 10rem;
+  height: 3rem;
+  margin-top: auto;
+  width: 100%;
 }
 
 @media (max-width: 420px) {
   .page {
-    padding: var(--noir-space-4);
+    align-items: stretch;
+    padding: 0;
   }
 
+  .card {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100vh;
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
