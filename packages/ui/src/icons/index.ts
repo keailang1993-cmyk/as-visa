@@ -10,7 +10,9 @@ export {
   FileText,
   LoaderCircle,
   Menu,
+  ShieldCheck,
   Search,
+  Smartphone,
   Upload,
   User,
   X
