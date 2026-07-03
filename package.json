@@ -10,6 +10,7 @@
   "scripts": {
     "dev:customer": "next dev apps/customer",
     "storybook:ui": "storybook dev -c packages/ui/.storybook",
+    "typecheck:rule-engine": "tsc -p packages/rule-engine/tsconfig.json --noEmit",
     "typecheck:ui": "tsc -p packages/ui/tsconfig.json --noEmit"
   },
   "dependencies": {

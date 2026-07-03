@@ -4,6 +4,7 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
+      "@as-visa/rule-engine": ["../../packages/rule-engine/src/index.ts"],
       "@as-visa/ui": ["../../packages/ui/src/index.ts"]
     },
     "plugins": [

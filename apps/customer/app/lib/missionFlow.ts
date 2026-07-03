@@ -1,38 +1,22 @@
+import { defaultMissionFlow, type MissionItem } from "@as-visa/rule-engine";
+
 export const missionStorageKey = "as-visa-current-mission-index";
 
-// This is MVP mock data.
-// Later it will be replaced by Rule Engine generated document checklist.
-export const missionFlow = [
-  {
-    title: "上传护照",
-    documentName: "护照",
-    uploadTitle: "请上传护照",
-    uploadDescription: "请确保照片清晰、四角完整、没有反光。",
-    guide: "请将护照平放，确保整页信息完整清晰。",
-    detectedLabel: "已识别护照",
-    successTitle: "护照已收到，正在准备初步检查。"
-  },
-  {
-    title: "上传身份证",
-    documentName: "身份证",
-    uploadTitle: "请上传身份证",
-    uploadDescription: "请确保身份证信息清晰、边缘完整、没有遮挡。",
-    guide: "请将身份证放在平整表面，确保文字清楚可读。",
-    detectedLabel: "已识别身份证",
-    successTitle: "身份证已收到，正在准备初步检查。"
-  },
-  {
-    title: "上传银行流水",
-    documentName: "银行流水",
-    uploadTitle: "请上传银行流水",
-    uploadDescription: "请上传清晰的银行流水照片或 PDF 文件。",
-    guide: "请确保姓名、银行名称和近期交易记录清晰可见。",
-    detectedLabel: "已识别银行流水",
-    successTitle: "银行流水已收到，正在准备初步检查。"
-  }
-] as const;
+// Mission data now comes from the Rule Engine foundation.
+// The current default rules are MVP sample rules until backend rule selection is connected.
+export const missionFlow = defaultMissionFlow;
 
-export type MissionItem = (typeof missionFlow)[number];
+export type CurrentMission =
+  | {
+      index: number;
+      mission: MissionItem;
+      isComplete: false;
+    }
+  | {
+      index: number;
+      mission: undefined;
+      isComplete: true;
+    };
 
 export function getStoredMissionIndex() {
   if (typeof window === "undefined") return 0;
@@ -51,11 +35,21 @@ export function setStoredMissionIndex(index: number) {
   );
 }
 
-export function getCurrentMission() {
+export function getCurrentMission(): CurrentMission {
   const index = getStoredMissionIndex();
+  const mission = missionFlow[index];
+
+  if (!mission) {
+    return {
+      index,
+      mission: undefined,
+      isComplete: true
+    };
+  }
+
   return {
     index,
-    mission: missionFlow[index],
-    isComplete: index >= missionFlow.length
+    mission,
+    isComplete: false
   };
 }
