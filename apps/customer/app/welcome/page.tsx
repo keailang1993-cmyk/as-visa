@@ -70,7 +70,7 @@ export default function WelcomePage() {
         </section>
 
         <div className={styles.actionArea}>
-          <Button className={styles.primaryButton} icon={<Check size={16} />} onClick={() => router.push("/login")}>
+          <Button className={styles.primaryButton} icon={<Check size={16} />} onClick={() => router.push("/intake")}>
             开始办理
           </Button>
           <p className={styles.trustNote}>移动端体验已针对微信内访问优化。</p>
