@@ -4,10 +4,7 @@ import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Button,
-  Card,
-  DocumentPreview,
-  RetryUpload
+  Button
 } from "@as-visa/ui";
 import { Bell, Camera, Check, ClipboardCheck, Home, MessageCircle, ShieldCheck, Upload, User } from "@as-visa/ui";
 import { getCurrentMission } from "../lib/missionFlow";
@@ -34,6 +31,12 @@ export default function UploadPage() {
 
   const activeMission = currentMission.mission;
   const uploadTitle = activeMission.documentName === "护照" ? "上传护照首页" : activeMission.title;
+  const pageTitle = state === "preview" ? "请确认这张照片" : state === "success" ? "资料已收到" : uploadTitle;
+  const pageDescription = state === "preview"
+    ? "确认照片清晰后，我们将继续进行 AI 初步检查。"
+    : state === "success"
+      ? "正在进入 AI 初步检查。"
+      : "请确保照片清晰、四角完整、没有反光。";
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -90,9 +93,9 @@ export default function UploadPage() {
         <div className={styles.titleBlock}>
           <p className={styles.kicker}>今日任务</p>
           <h1 className={styles.title} id="upload-title">
-            {uploadTitle}
+            {pageTitle}
           </h1>
-          <p className={styles.description}>请确保照片清晰、四角完整、没有反光。</p>
+          <p className={styles.description}>{pageDescription}</p>
         </div>
 
         {state === "idle" ? (
@@ -135,32 +138,48 @@ export default function UploadPage() {
         ) : null}
 
         {state === "preview" ? (
-          <Card className={styles.previewCard}>
-            <div className={styles.stack}>
-              <DocumentPreview name={fileName} onRemove={handleRetry}>
-                {previewUrl ? <img alt={`${activeMission.documentName}预览`} className={styles.preview} src={previewUrl} /> : null}
-              </DocumentPreview>
-              <div className={styles.actions}>
-                <RetryUpload onRetry={handleRetry} />
-                <Button onClick={handleSuccess}>使用这张照片</Button>
-              </div>
+          <section className={styles.previewFlow} aria-label="照片确认">
+            <div className={styles.imageCard}>
+              {previewUrl ? <img alt={`${activeMission.documentName}预览`} className={styles.previewImage} src={previewUrl} /> : null}
+              <p>{fileName || `${activeMission.documentName}照片`}</p>
             </div>
-          </Card>
+
+            <div className={styles.previewChecklist} aria-label="照片检查项">
+              {["四角完整", "文字清晰", "无反光", "无模糊"].map((item) => (
+                <span key={item}>
+                  <Check size={14} strokeWidth={2.6} />
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <div className={styles.previewActions}>
+              <Button className={styles.confirmButton} onClick={handleSuccess}>
+                使用这张照片
+              </Button>
+              <button className={styles.retryButton} onClick={handleRetry} type="button">
+                重新上传
+              </button>
+            </div>
+          </section>
         ) : null}
 
         {state === "success" ? (
-          <Card className={styles.successCard}>
+          <section className={styles.successCard} aria-live="polite">
             <Check size={24} />
-            <h2>{activeMission.successTitle}</h2>
-          </Card>
+            <h2>资料已收到</h2>
+            <p>正在进入 AI 初步检查。</p>
+          </section>
         ) : null}
 
-        <nav className={styles.bottomNav} aria-label="主导航">
-          <span className={styles.navItemActive}><Home size={19} fill="currentColor" />首页</span>
-          <span className={styles.navItem}><ClipboardCheck size={19} />进度</span>
-          <span className={styles.navItem}><MessageCircle size={19} />消息</span>
-          <span className={styles.navItem}><User size={19} />我的</span>
-        </nav>
+        {state === "idle" ? (
+          <nav className={styles.bottomNav} aria-label="主导航">
+            <span className={styles.navItemActive}><Home size={19} fill="currentColor" />首页</span>
+            <span className={styles.navItem}><ClipboardCheck size={19} />进度</span>
+            <span className={styles.navItem}><MessageCircle size={19} />消息</span>
+            <span className={styles.navItem}><User size={19} />我的</span>
+          </nav>
+        ) : null}
 
         <input
           accept="image/*"
