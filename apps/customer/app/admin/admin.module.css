@@ -242,9 +242,28 @@
   height: 3rem;
 }
 
-.button:disabled {
+.secondaryButton {
+  background: var(--noir-color-surface-raised);
+  border: 1px solid var(--noir-color-border);
+  border-radius: var(--noir-radius-xl);
+  color: var(--noir-color-foreground);
+  cursor: pointer;
+  font: 700 0.875rem/1 var(--noir-font-sans);
+  height: 2.75rem;
+  padding: 0 1rem;
+}
+
+.button:disabled,
+.secondaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.previewAction {
+  align-items: flex-start;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
 }
 
 .formMessage {

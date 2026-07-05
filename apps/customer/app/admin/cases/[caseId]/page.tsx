@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DocumentPreviewButton } from "../../_components/DocumentPreviewButton";
 import { StatusUpdateForm } from "../../_components/StatusUpdateForm";
 import styles from "../../admin.module.css";
 import {
@@ -94,7 +95,7 @@ export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPag
                         <DataItem label="status" value={document.status} />
                       </div>
                       <p className={styles.filePath}>file_path: {document.file_path || "未记录"}</p>
-                      <p className={styles.muted}>文件预览将在下一版本开放。</p>
+                      <DocumentPreviewButton documentId={document.id} />
                     </article>
                   ))}
                 </div>
