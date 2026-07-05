@@ -32,6 +32,7 @@ type UploadedDocuments = {
 };
 
 type UploadedDocument = {
+  file: File;
   fileName: string;
   fileMimeType: string | null;
   fileSize: number | null;
@@ -113,6 +114,7 @@ export default function IntakePage() {
     setUploaded((current) => ({
       ...current,
       [documentId]: {
+        file,
         fileMimeType: file.type || null,
         fileName: file.name,
         fileSize: file.size || null
@@ -135,6 +137,7 @@ export default function IntakePage() {
         documents: uploadedEntries.map((item) => ({
           documentName: item.name,
           documentType: item.id,
+          file: item.file.file,
           fileMimeType: item.file.fileMimeType,
           fileName: item.file.fileName,
           fileSize: item.file.fileSize

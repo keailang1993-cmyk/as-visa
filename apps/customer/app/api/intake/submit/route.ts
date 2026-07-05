@@ -1,24 +1,39 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@as-visa/database";
 
+export const runtime = "nodejs";
+
 type SubmitPayload = {
-  basicInfo?: {
-    birthDate?: string;
-    destination?: string;
-    name?: string;
-    occupation?: string;
-    passportNumber?: string;
-    phone?: string;
-    travelDate?: string;
-  };
-  documents?: Array<{
-    documentName?: string;
-    documentType?: string;
-    fileMimeType?: string | null;
-    fileName?: string;
-    fileSize?: number | null;
-  }>;
+  basicInfo: BasicInfoPayload;
+  documents: DocumentPayload[];
 };
+
+type BasicInfoPayload = {
+  birthDate?: string;
+  destination?: string;
+  name?: string;
+  occupation?: string;
+  passportNumber?: string;
+  phone?: string;
+  travelDate?: string;
+};
+
+type DocumentPayload = {
+  documentName?: string;
+  documentType?: string;
+  fileMimeType?: string | null;
+  fileName?: string;
+  fileSize?: number | null;
+};
+
+const DOCUMENT_BUCKET = "as-visa-documents";
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
 
 function createCaseCode() {
   const date = new Date();
@@ -35,7 +50,73 @@ function emptyToNull(value: string | undefined) {
   return value ? value : null;
 }
 
-function isValidPayload(payload: SubmitPayload) {
+function safeFileName(fileName: string) {
+  return fileName
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase() || "document";
+}
+
+function createStoragePath(caseId: string, documentType: string, fileName: string) {
+  return `cases/${caseId}/${documentType}/${Date.now()}-${safeFileName(fileName)}`;
+}
+
+function isFile(value: FormDataEntryValue): value is File {
+  return typeof value !== "string" && typeof value.arrayBuffer === "function";
+}
+
+function validateFile(file: File) {
+  if (!file || file.size === 0) {
+    return "File is required";
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return "File exceeds 10MB limit";
+  }
+
+  if (!ALLOWED_FILE_TYPES.has(file.type)) {
+    return "File type is not allowed";
+  }
+
+  return null;
+}
+
+function parseSubmitFormData(formData: FormData): SubmitPayload & { files: File[] } {
+  const basicInfoValue = formData.get("basicInfo");
+
+  if (typeof basicInfoValue !== "string") {
+    throw new Error("Missing basicInfo");
+  }
+
+  const documents = formData.getAll("documents").map((value) => {
+    if (typeof value !== "string") {
+      throw new Error("Invalid document metadata");
+    }
+
+    return JSON.parse(value) as DocumentPayload;
+  });
+  const files = formData.getAll("files");
+
+  if (documents.length !== files.length) {
+    throw new Error("Document metadata and files length mismatch");
+  }
+
+  return {
+    basicInfo: JSON.parse(basicInfoValue) as BasicInfoPayload,
+    documents,
+    files: files.map((file) => {
+      if (!isFile(file)) {
+        throw new Error("Invalid file payload");
+      }
+
+      return file;
+    })
+  };
+}
+
+function isValidPayload(payload: SubmitPayload & { files: File[] }) {
   const basicInfo = payload.basicInfo;
 
   return Boolean(
@@ -44,17 +125,15 @@ function isValidPayload(payload: SubmitPayload) {
     basicInfo.passportNumber &&
     basicInfo.destination &&
     basicInfo.occupation &&
-    Array.isArray(payload.documents) &&
     payload.documents.length > 0 &&
-    payload.documents.every((document) => document.documentName && document.documentType && document.fileName)
+    payload.documents.every((document) => document.documentName && document.documentType && document.fileName) &&
+    payload.files.length === payload.documents.length &&
+    payload.files.every((file) => validateFile(file) === null)
   );
 }
 
-async function deleteVisaCase(caseId: string) {
-  const supabase = createServerSupabaseClient();
-
+async function deleteVisaCase(caseId: string, supabase: ReturnType<typeof createServerSupabaseClient>) {
   if (!supabase) return;
-
   const { error } = await supabase.from("visa_cases").delete().eq("id", caseId);
 
   if (error) {
@@ -62,17 +141,28 @@ async function deleteVisaCase(caseId: string) {
   }
 }
 
+async function removeUploadedFiles(filePaths: string[], supabase: ReturnType<typeof createServerSupabaseClient>) {
+  if (!supabase || filePaths.length === 0) return;
+
+  const { error } = await supabase.storage.from(DOCUMENT_BUCKET).remove(filePaths);
+
+  if (error) {
+    console.error("[AS VISA] Failed to roll back uploaded storage files.", error);
+  }
+}
+
 export async function POST(request: Request) {
-  let payload: SubmitPayload;
+  let payload: SubmitPayload & { files: File[] };
 
   try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    payload = parseSubmitFormData(await request.formData());
+  } catch (error) {
+    console.error("[AS VISA] Invalid intake multipart payload.", error);
+    return NextResponse.json({ error: "Invalid multipart request body" }, { status: 400 });
   }
 
   if (!isValidPayload(payload)) {
-    return NextResponse.json({ error: "Missing required intake fields" }, { status: 400 });
+    return NextResponse.json({ error: "Missing required intake fields or invalid files" }, { status: 400 });
   }
 
   const supabase = createServerSupabaseClient();
@@ -81,8 +171,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase server configuration is missing" }, { status: 503 });
   }
 
-  const basicInfo = payload.basicInfo!;
-  const documents = payload.documents!;
+  const basicInfo = payload.basicInfo;
+  const documents = payload.documents;
   const caseCode = createCaseCode();
 
   const { data: visaCase, error: caseError } = await supabase
@@ -110,23 +200,47 @@ export async function POST(request: Request) {
 
   const caseId = visaCase.id as string;
   const insertedCaseCode = visaCase.case_code as string;
+  const uploadedStoragePaths: string[] = [];
 
-  const documentRows = documents.map((document) => ({
-    case_id: caseId,
-    document_name: document.documentName,
-    document_type: document.documentType,
-    file_mime_type: document.fileMimeType ?? null,
-    file_name: document.fileName,
-    file_path: "",
-    file_size: document.fileSize ?? null,
-    status: "uploaded"
-  }));
+  const documentRows = [];
+
+  for (let index = 0; index < documents.length; index += 1) {
+    const document = documents[index];
+    const file = payload.files[index];
+    const fileName = document.fileName || file.name;
+    const storagePath = createStoragePath(caseId, document.documentType!, fileName);
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(storagePath, fileBuffer, {
+      contentType: file.type,
+      upsert: false
+    });
+
+    if (uploadError) {
+      console.error("[AS VISA] Failed to upload intake document file.", uploadError);
+      await removeUploadedFiles(uploadedStoragePaths, supabase);
+      await deleteVisaCase(caseId, supabase);
+      return NextResponse.json({ error: "Failed to upload document file" }, { status: 500 });
+    }
+
+    uploadedStoragePaths.push(storagePath);
+    documentRows.push({
+      case_id: caseId,
+      document_name: document.documentName,
+      document_type: document.documentType,
+      file_mime_type: file.type || document.fileMimeType || null,
+      file_name: fileName,
+      file_path: storagePath,
+      file_size: file.size || document.fileSize || null,
+      status: "uploaded"
+    });
+  }
 
   const { error: documentsError } = await supabase.from("visa_documents").insert(documentRows);
 
   if (documentsError) {
     console.error("[AS VISA] Failed to create intake document metadata.", documentsError);
-    await deleteVisaCase(caseId);
+    await removeUploadedFiles(uploadedStoragePaths, supabase);
+    await deleteVisaCase(caseId, supabase);
     return NextResponse.json({ error: "Failed to create document metadata" }, { status: 500 });
   }
 
@@ -139,7 +253,8 @@ export async function POST(request: Request) {
 
   if (eventError) {
     console.error("[AS VISA] Failed to create intake case event.", eventError);
-    await deleteVisaCase(caseId);
+    await removeUploadedFiles(uploadedStoragePaths, supabase);
+    await deleteVisaCase(caseId, supabase);
     return NextResponse.json({ error: "Failed to create case event" }, { status: 500 });
   }
 

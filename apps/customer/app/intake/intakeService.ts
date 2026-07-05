@@ -11,6 +11,7 @@ export type IntakeBasicInfoInput = {
 export type IntakeDocumentInput = {
   documentName: string;
   documentType: string;
+  file: File;
   fileMimeType?: string | null;
   fileName: string;
   fileSize?: number | null;
@@ -49,11 +50,22 @@ function createDevelopmentMockSubmit(): IntakeSubmitResult {
 
 export async function submitIntake(input: IntakeSubmitInput): Promise<IntakeSubmitResult> {
   try {
+    const formData = new FormData();
+    formData.append("basicInfo", JSON.stringify(input.basicInfo));
+
+    input.documents.forEach((document) => {
+      formData.append("documents", JSON.stringify({
+        documentName: document.documentName,
+        documentType: document.documentType,
+        fileMimeType: document.fileMimeType ?? null,
+        fileName: document.fileName,
+        fileSize: document.fileSize ?? null
+      }));
+      formData.append("files", document.file, document.fileName);
+    });
+
     const response = await fetch("/api/intake/submit", {
-      body: JSON.stringify(input),
-      headers: {
-        "Content-Type": "application/json"
-      },
+      body: formData,
       method: "POST"
     });
 

@@ -45,6 +45,8 @@ create index if not exists visa_cases_status_idx on public.visa_cases (status);
 create index if not exists visa_documents_case_id_idx on public.visa_documents (case_id);
 create index if not exists case_events_case_id_created_at_idx on public.case_events (case_id, created_at desc);
 
+comment on column public.visa_documents.file_path is 'Private Supabase Storage path in as-visa-documents bucket, for example cases/{case_id}/{document_type}/{timestamp}-{safe_file_name}.';
+
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin

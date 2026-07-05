@@ -53,7 +53,7 @@ Important: `SUPABASE_SERVICE_ROLE_KEY` must only be used in server code. It must
 2. Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel.
 3. Open `/intake`.
 4. Complete basic information.
-5. Upload mock documents.
+5. Upload required documents.
 6. Submit.
 7. Confirm the success page appears.
 8. Confirm new rows exist in:
@@ -68,15 +68,14 @@ Important: `SUPABASE_SERVICE_ROLE_KEY` must only be used in server code. It must
 
 ## What Remains Mock
 
-- Real file upload is still not implemented.
-- `file_path` remains an empty string for now.
+- Real file upload is handled by the later Supabase Storage upload pass.
 - AI review is not connected.
 - SMS login is not connected.
 - Admin/staff review is not built yet.
 
 ## Remaining TODO
 
-- Add Supabase Storage upload for real files.
+- Continue hardening Supabase Storage upload for real files.
 - Replace multi-step insert cleanup with a database RPC transaction.
 - Add rate limiting and stronger server-side validation.
 - Generate Supabase database types.

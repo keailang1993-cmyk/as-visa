@@ -36,7 +36,7 @@
 
 ## What Remains Mock
 
-- Real file upload is not implemented.
+- Real file upload is now handled by the later Supabase Storage upload pass.
 - File storage bucket integration is not implemented.
 - AI review is not connected.
 - SMS login is not connected.
@@ -70,7 +70,7 @@ This original foundation behavior has been superseded by server-side intake subm
 - Keep submission writes on the server.
 - Add transaction/RPC support for stronger atomic writes.
 - Add generated Supabase database types.
-- Add real file upload to private Supabase Storage.
+- Continue hardening private Supabase Storage upload.
 - Add staff review UI.
 - Add status transition events.
 - Add Enterprise WeChat notifications.

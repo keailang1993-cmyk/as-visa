@@ -10,7 +10,7 @@ The first persistence scope is:
 - Uploaded document metadata
 - Case event log
 
-Real file upload, staff review workflow, SMS login, and AI checks are intentionally out of scope for this foundation sprint.
+Staff review workflow, SMS login, and AI checks are intentionally out of scope for this foundation sprint.
 
 ## Create A Supabase Project
 
@@ -84,7 +84,7 @@ Default source is `wechat_intake`.
 
 Stores metadata for documents attached to a case.
 
-The current sprint does not upload actual files. `file_path` is prepared for future storage integration.
+`file_path` stores the private Supabase Storage path for the uploaded document file.
 
 ### `case_events`
 
@@ -95,19 +95,53 @@ The first event is:
 - `event_type`: `intake_submitted`
 - `title`: `资料已提交`
 
-## Storage Buckets Needed
+## Storage Bucket
 
-Future production file upload should add a private bucket:
+Create this private bucket in Supabase Storage:
 
-- `visa-documents`
+- `as-visa-documents`
+
+The bucket must be private.
 
 Recommended path format:
 
 ```text
-visa-cases/{case_id}/{document_type}/{file_name}
+cases/{case_id}/{document_type}/{timestamp}-{safe_file_name}
+```
+
+Example:
+
+```text
+cases/92e45093-28c2-4420-af1b-0ed5db50/passport/20260705-passport.jpg
 ```
 
 Do not make customer document buckets public.
+
+## Create Storage Bucket
+
+In the Supabase dashboard:
+
+1. Open Storage.
+2. Create a new bucket.
+3. Bucket name: `as-visa-documents`
+4. Public bucket: off.
+5. Save.
+
+The server upload route uses `SUPABASE_SERVICE_ROLE_KEY`, so it can upload to the private bucket without exposing storage permissions to the browser.
+
+## Storage Policies
+
+For the current MVP, browser clients should not upload or read files directly. Server routes use the service role key and bypass storage RLS.
+
+Do not add public read policies for `as-visa-documents`.
+
+Future staff/admin previews should use signed URLs generated server-side, for example:
+
+```text
+createSignedUrl(file_path, expiresInSeconds)
+```
+
+Signed URLs should be short-lived and only returned to authorized staff users.
 
 ## RLS Notes
 
@@ -122,7 +156,7 @@ Anonymous users are not granted insert/read/update/delete access in this schema.
 ## MVP Security Notes
 
 - Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
-- Do not store real files until Storage policies are reviewed.
+- Store files only in the private `as-visa-documents` bucket.
 - Treat all intake values as untrusted user input.
 - Add rate limiting before public launch.
 - Add server-side validation before staff workflow starts.
@@ -132,7 +166,7 @@ Anonymous users are not granted insert/read/update/delete access in this schema.
 - Keep intake submission behind a Next.js server route.
 - Use service role only on the server.
 - Generate database types from Supabase.
-- Store uploaded files in a private bucket.
+- Generate signed URLs server-side for staff document preview.
 - Add document virus scanning or file validation.
 - Add staff-only read policies.
 - Add audit events for every status change.
