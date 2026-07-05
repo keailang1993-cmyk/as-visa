@@ -75,10 +75,6 @@ using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
 drop policy if exists "anon can create intake visa cases" on public.visa_cases;
-create policy "anon can create intake visa cases"
-on public.visa_cases
-for insert
-with check (auth.role() = 'anon' and source = 'wechat_intake');
 
 drop policy if exists "service role can manage visa documents" on public.visa_documents;
 create policy "service role can manage visa documents"
@@ -88,10 +84,6 @@ using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
 drop policy if exists "anon can create intake visa documents" on public.visa_documents;
-create policy "anon can create intake visa documents"
-on public.visa_documents
-for insert
-with check (auth.role() = 'anon');
 
 drop policy if exists "service role can manage case events" on public.case_events;
 create policy "service role can manage case events"
@@ -101,7 +93,3 @@ using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
 drop policy if exists "anon can create intake case events" on public.case_events;
-create policy "anon can create intake case events"
-on public.case_events
-for insert
-with check (auth.role() = 'anon' and event_type = 'intake_submitted');

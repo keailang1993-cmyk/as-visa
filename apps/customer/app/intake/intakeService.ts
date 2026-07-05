@@ -1,13 +1,11 @@
-import { createBrowserSupabaseClient } from "@as-visa/database";
-
 export type IntakeBasicInfoInput = {
-  name: string;
-  phone: string;
   birthDate: string;
-  passportNumber: string;
   destination: string;
-  travelDate: string;
+  name: string;
   occupation: string;
+  passportNumber: string;
+  phone: string;
+  travelDate: string;
 };
 
 export type IntakeDocumentInput = {
@@ -18,23 +16,18 @@ export type IntakeDocumentInput = {
   fileSize?: number | null;
 };
 
-export type IntakeCaseEventInput = {
-  description?: string | null;
-  eventType: string;
-  title: string;
+export type IntakeSubmitInput = {
+  basicInfo: IntakeBasicInfoInput;
+  documents: IntakeDocumentInput[];
 };
 
-type VisaCaseInsertResult = {
+export type IntakeSubmitResult = {
   caseCode: string;
   caseId: string;
   mode: "mock" | "supabase";
 };
 
-function isSupabaseConfigured() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}
-
-function createCaseCode() {
+function createMockCaseCode() {
   const date = new Date();
   const datePart = [
     date.getFullYear(),
@@ -42,120 +35,41 @@ function createCaseCode() {
     String(date.getDate()).padStart(2, "0")
   ].join("");
   const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `ASV-${datePart}-${randomPart}`;
+  return `MOCK-${datePart}-${randomPart}`;
 }
 
-function emptyToNull(value: string) {
-  return value ? value : null;
-}
-
-export async function createVisaCase(input: IntakeBasicInfoInput): Promise<VisaCaseInsertResult> {
-  const caseCode = createCaseCode();
-
-  if (!isSupabaseConfigured()) {
-    console.warn("[AS VISA] Supabase is not configured. Falling back to mock local intake submit.");
-    return {
-      caseCode,
-      caseId: `mock-${caseCode}`,
-      mode: "mock"
-    };
-  }
-
-  const supabase = createBrowserSupabaseClient();
-
-  if (!supabase) {
-    console.warn("[AS VISA] Supabase client could not be created. Falling back to mock local intake submit.");
-    return {
-      caseCode,
-      caseId: `mock-${caseCode}`,
-      mode: "mock"
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("visa_cases")
-    .insert({
-      applicant_birth_date: emptyToNull(input.birthDate),
-      applicant_name: input.name,
-      applicant_phone: input.phone,
-      case_code: caseCode,
-      destination_country: input.destination,
-      occupation_type: input.occupation,
-      passport_number: input.passportNumber,
-      source: "wechat_intake",
-      status: "submitted",
-      travel_date: emptyToNull(input.travelDate),
-      visa_type: "日本旅游签证"
-    })
-    .select("id, case_code")
-    .single();
-
-  if (error || !data) {
-    console.warn("[AS VISA] Failed to create Supabase visa case. Falling back to mock local intake submit.", error);
-    return {
-      caseCode,
-      caseId: `mock-${caseCode}`,
-      mode: "mock"
-    };
-  }
-
+function createDevelopmentMockSubmit(): IntakeSubmitResult {
+  const caseCode = createMockCaseCode();
   return {
-    caseCode: data.case_code as string,
-    caseId: data.id as string,
-    mode: "supabase"
+    caseCode,
+    caseId: `mock-${caseCode}`,
+    mode: "mock"
   };
 }
 
-export async function uploadVisaDocument(caseId: string, document: IntakeDocumentInput) {
-  if (!isSupabaseConfigured() || caseId.startsWith("mock-")) {
-    return { mode: "mock" as const };
+export async function submitIntake(input: IntakeSubmitInput): Promise<IntakeSubmitResult> {
+  try {
+    const response = await fetch("/api/intake/submit", {
+      body: JSON.stringify(input),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      method: "POST"
+    });
+
+    if (!response.ok) {
+      throw new Error(`Intake submit failed with status ${response.status}`);
+    }
+
+    return await response.json() as IntakeSubmitResult;
+  } catch (error) {
+    console.warn("[AS VISA] Intake API submit failed.", error);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[AS VISA] Falling back to mock intake submit in development only.");
+      return createDevelopmentMockSubmit();
+    }
+
+    throw error;
   }
-
-  const supabase = createBrowserSupabaseClient();
-
-  if (!supabase) {
-    return { mode: "mock" as const };
-  }
-
-  const { error } = await supabase.from("visa_documents").insert({
-    case_id: caseId,
-    document_name: document.documentName,
-    document_type: document.documentType,
-    file_mime_type: document.fileMimeType ?? null,
-    file_name: document.fileName,
-    file_path: "",
-    file_size: document.fileSize ?? null,
-    status: "uploaded"
-  });
-
-  if (error) {
-    console.warn("[AS VISA] Failed to save Supabase document metadata.", error);
-  }
-
-  return { mode: error ? "mock" as const : "supabase" as const };
-}
-
-export async function createCaseEvent(caseId: string, event: IntakeCaseEventInput) {
-  if (!isSupabaseConfigured() || caseId.startsWith("mock-")) {
-    return { mode: "mock" as const };
-  }
-
-  const supabase = createBrowserSupabaseClient();
-
-  if (!supabase) {
-    return { mode: "mock" as const };
-  }
-
-  const { error } = await supabase.from("case_events").insert({
-    case_id: caseId,
-    description: event.description ?? null,
-    event_type: event.eventType,
-    title: event.title
-  });
-
-  if (error) {
-    console.warn("[AS VISA] Failed to save Supabase case event.", error);
-  }
-
-  return { mode: error ? "mock" as const : "supabase" as const };
 }

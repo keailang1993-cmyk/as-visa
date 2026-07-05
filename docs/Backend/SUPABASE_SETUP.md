@@ -27,7 +27,11 @@ Real file upload, staff review workflow, SMS login, and AI checks are intentiona
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-The customer app only needs the public URL and anon key for the current MVP browser insert path. The service role key must stay server-side only and must not be exposed to the browser.
+The server-side intake submit route uses `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+`SUPABASE_SERVICE_ROLE_KEY` must stay server-side only. Never expose it in browser code, never prefix it with `NEXT_PUBLIC_`, and only configure it in Vercel environment variables or local server-only env files.
+
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` is kept in the template for future browser-side read-only or authenticated flows, but the intake submit path does not use it for database writes.
 
 ## Local `.env.local` Example
 
@@ -40,6 +44,19 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 Do not commit `.env.local`.
+
+## Vercel Environment Variables
+
+Add these variables in Vercel Project Settings:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Optional future variable:
+
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+The production `/api/intake/submit` route must have `SUPABASE_SERVICE_ROLE_KEY`; otherwise production submit will fail instead of silently showing success.
 
 ## Tables Needed
 
@@ -99,14 +116,12 @@ The schema enables RLS on all MVP tables.
 Current SQL includes:
 
 - service-role policies for full server-side management
-- anon insert-only policies for the temporary WeChat intake MVP
 
-Anon users are not granted read/update/delete access in this schema. Production should move writes behind a server route before collecting real customer documents.
+Anonymous users are not granted insert/read/update/delete access in this schema. Intake submission is handled by the server route with the service role key.
 
 ## MVP Security Notes
 
 - Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
-- Treat the anon insert policy as temporary MVP infrastructure.
 - Do not store real files until Storage policies are reviewed.
 - Treat all intake values as untrusted user input.
 - Add rate limiting before public launch.
@@ -114,7 +129,7 @@ Anon users are not granted read/update/delete access in this schema. Production 
 
 ## Future Production Notes
 
-- Move intake submission to a Next.js server action or route handler.
+- Keep intake submission behind a Next.js server route.
 - Use service role only on the server.
 - Generate database types from Supabase.
 - Store uploaded files in a private bucket.

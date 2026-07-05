@@ -26,13 +26,13 @@
 
 ## What Is Connected
 
-- `/intake` final submit now attempts to create a `visa_cases` row.
+- `/intake` final submit is now followed by a server-side submit route in the next critical fix.
 - Uploaded document metadata is prepared and can be inserted into `visa_documents`.
 - A first case event is prepared for `case_events` with:
   - `event_type`: `intake_submitted`
   - `title`: `资料已提交`
-- If Supabase is not configured, the page keeps the current local success flow.
-- RLS includes temporary anon insert-only policies for the MVP intake path.
+- Server-side writes use `SUPABASE_SERVICE_ROLE_KEY`.
+- RLS should keep anonymous users from writing directly.
 
 ## What Remains Mock
 
@@ -45,13 +45,7 @@
 
 ## Test With Supabase Not Configured
 
-1. Do not set Supabase environment variables.
-2. Run the customer app.
-3. Open `/intake`.
-4. Complete required fields and mock document uploads.
-5. Submit.
-6. Confirm the success page still appears.
-7. Confirm a warning is logged in the browser console only.
+This original foundation behavior has been superseded by server-side intake submit. In production, missing Supabase server configuration should show a user-facing submit failure instead of silent success.
 
 ## Test With Supabase Configured
 
@@ -73,8 +67,8 @@
 
 ## Remaining TODO
 
-- Move submission writes to a server route before production.
-- Replace temporary anon insert policies with server-side writes.
+- Keep submission writes on the server.
+- Add transaction/RPC support for stronger atomic writes.
 - Add generated Supabase database types.
 - Add real file upload to private Supabase Storage.
 - Add staff review UI.

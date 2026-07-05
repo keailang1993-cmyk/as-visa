@@ -374,7 +374,8 @@
   color: var(--noir-color-muted);
 }
 
-.warning {
+.warning,
+.submitError {
   background: var(--noir-color-surface);
   border: var(--noir-space-px) solid var(--noir-color-border);
   border-radius: var(--noir-radius-xl);
@@ -382,6 +383,11 @@
   font: 600 0.875rem/1.5 var(--noir-font-sans);
   margin: 0;
   padding: var(--noir-space-4);
+}
+
+.submitError {
+  background: var(--noir-color-surface-raised);
+  border-color: var(--noir-color-border-strong);
 }
 
 .actionStack {

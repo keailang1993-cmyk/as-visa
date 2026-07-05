@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { Button, Check, FileText, Upload } from "@as-visa/ui";
-import { createCaseEvent, createVisaCase, uploadVisaDocument } from "./intakeService";
+import { submitIntake } from "./intakeService";
 import styles from "./intake.module.css";
 
 type IntakeStep = 1 | 2 | 3 | 4 | 5;
@@ -92,6 +92,7 @@ export default function IntakePage() {
   const [uploaded, setUploaded] = useState<UploadedDocuments>(initialDocuments);
   const [submittedAt, setSubmittedAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const missingDocuments = documents.filter((item) => !uploaded[item.id]);
   const allDocumentsUploaded = missingDocuments.length === 0;
@@ -122,32 +123,32 @@ export default function IntakePage() {
   async function handleSubmit() {
     if (!allDocumentsUploaded || isSubmitting) return;
     setIsSubmitting(true);
+    setSubmitError("");
 
     try {
-      const visaCase = await createVisaCase(info);
       const uploadedEntries = documents
         .map((item) => ({ ...item, file: uploaded[item.id] }))
         .filter((item): item is DocumentItem & { file: UploadedDocument } => Boolean(item.file));
 
-      await Promise.all(uploadedEntries.map((item) => uploadVisaDocument(visaCase.caseId, {
-        documentName: item.name,
-        documentType: item.id,
-        fileMimeType: item.file.fileMimeType,
-        fileName: item.file.fileName,
-        fileSize: item.file.fileSize
-      })));
-
-      await createCaseEvent(visaCase.caseId, {
-        eventType: "intake_submitted",
-        title: "资料已提交"
+      await submitIntake({
+        basicInfo: info,
+        documents: uploadedEntries.map((item) => ({
+          documentName: item.name,
+          documentType: item.id,
+          fileMimeType: item.file.fileMimeType,
+          fileName: item.file.fileName,
+          fileSize: item.file.fileSize
+        }))
       });
-    } catch (error) {
-      console.warn("[AS VISA] Intake persistence failed. Continuing local success state.", error);
-    }
 
-    setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
-    setStep(5);
-    setIsSubmitting(false);
+      setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
+      setStep(5);
+    } catch (error) {
+      console.warn("[AS VISA] Intake submit failed. Staying on review step.", error);
+      setSubmitError("提交失败，请稍后重试或联系顾问。");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -344,9 +345,10 @@ export default function IntakePage() {
             {!allDocumentsUploaded ? (
               <p className={styles.warning}>还有资料未上传，请返回补充后再提交。</p>
             ) : null}
+            {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
 
             <div className={styles.actionStack}>
-              <Button className={styles.primaryButton} disabled={!allDocumentsUploaded} onClick={handleSubmit}>
+              <Button className={styles.primaryButton} disabled={!allDocumentsUploaded || isSubmitting} onClick={handleSubmit}>
                 {isSubmitting ? "正在提交" : "确认提交"}
               </Button>
               {!allDocumentsUploaded ? (
