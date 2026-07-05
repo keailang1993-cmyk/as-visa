@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button, Check, FileText, Upload } from "@as-visa/ui";
 import styles from "./intake.module.css";
 
@@ -48,6 +48,13 @@ const initialDocuments: UploadedDocuments = {
 };
 
 const occupationOptions = ["在职", "自由职业", "学生", "退休", "未成年人", "其他"] as const;
+const stepNames: Record<IntakeStep, string> = {
+  1: "办理说明",
+  2: "基础信息",
+  3: "上传资料",
+  4: "确认提交",
+  5: "提交完成"
+};
 
 const documents: DocumentItem[] = [
   {
@@ -76,10 +83,16 @@ export default function IntakePage() {
   const [step, setStep] = useState<IntakeStep>(1);
   const [info, setInfo] = useState<BasicInfo>(initialInfo);
   const [uploaded, setUploaded] = useState<UploadedDocuments>(initialDocuments);
-  const submittedAt = useMemo(() => new Date().toLocaleString("zh-CN", { hour12: false }), []);
+  const [submittedAt, setSubmittedAt] = useState("");
 
   const missingDocuments = documents.filter((item) => !uploaded[item.id]);
   const allDocumentsUploaded = missingDocuments.length === 0;
+  const requiredInfoComplete = Boolean(
+    info.name.trim() &&
+    info.phone.trim() &&
+    info.passportNumber.trim() &&
+    info.occupation
+  );
 
   function updateInfo(field: keyof BasicInfo, value: string) {
     setInfo((current) => ({ ...current, [field]: value }));
@@ -91,19 +104,34 @@ export default function IntakePage() {
     setUploaded((current) => ({ ...current, [documentId]: file.name }));
   }
 
+  function handleSubmit() {
+    if (!allDocumentsUploaded) return;
+    setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
+    setStep(5);
+  }
+
   return (
     <main className={`${styles.page} noir-scope`}>
       <section className={styles.shell} aria-labelledby="intake-title">
         <header className={styles.header}>
-          <p className={styles.brand}>AS VISA</p>
-          <span>资料收集</span>
+          <div>
+            <p className={styles.brand}>AS VISA</p>
+            <span>资料办理</span>
+          </div>
+          <strong className={styles.caseChip}>日本旅游签证</strong>
         </header>
 
-        <div className={styles.progress} aria-label={`第 ${step} 步，共 5 步`}>
-          {[1, 2, 3, 4, 5].map((item) => (
-            <span className={item <= step ? styles.progressDotActive : styles.progressDot} key={item} />
-          ))}
-        </div>
+        <section className={styles.stepStatus} aria-label={`第 ${step} 步，共 5 步`}>
+          <div>
+            <span>第 {step} / 5 步</span>
+            <strong>{stepNames[step]}</strong>
+          </div>
+          <div className={styles.progress}>
+            {[1, 2, 3, 4, 5].map((item) => (
+              <span className={item <= step ? styles.progressDotActive : styles.progressDot} key={item} />
+            ))}
+          </div>
+        </section>
 
         {step === 1 ? (
           <section className={styles.step}>
@@ -139,46 +167,54 @@ export default function IntakePage() {
             <div className={styles.sectionHeader}>
               <p className={styles.kicker}>基础信息</p>
               <h1 id="intake-title">请填写申请人信息</h1>
-              <p>信息仅用于本次签证资料初步整理。</p>
+              <p>请确保信息与护照及办理资料一致。</p>
             </div>
 
-            <div className={styles.formGrid}>
-              <label className={styles.field}>
-                <span>姓名</span>
-                <input onChange={(event) => updateInfo("name", event.target.value)} placeholder="请输入姓名" value={info.name} />
-              </label>
-              <label className={styles.field}>
-                <span>手机号</span>
-                <input inputMode="tel" onChange={(event) => updateInfo("phone", event.target.value)} placeholder="请输入手机号" value={info.phone} />
-              </label>
-              <label className={styles.field}>
-                <span>出生日期</span>
-                <input onChange={(event) => updateInfo("birthDate", event.target.value)} type="date" value={info.birthDate} />
-              </label>
-              <label className={styles.field}>
-                <span>护照号码</span>
-                <input onChange={(event) => updateInfo("passportNumber", event.target.value)} placeholder="请输入护照号码" value={info.passportNumber} />
-              </label>
-              <label className={styles.field}>
-                <span>出行国家</span>
-                <input onChange={(event) => updateInfo("destination", event.target.value)} placeholder="日本" value={info.destination} />
-              </label>
-              <label className={styles.field}>
-                <span>出行时间</span>
-                <input onChange={(event) => updateInfo("travelDate", event.target.value)} type="date" value={info.travelDate} />
-              </label>
-              <label className={styles.field}>
-                <span>职业类型</span>
-                <select onChange={(event) => updateInfo("occupation", event.target.value)} value={info.occupation}>
-                  <option value="">请选择职业类型</option>
-                  {occupationOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <section className={styles.formCard}>
+              <div className={styles.formSection}>
+                <h2>身份信息</h2>
+                <label className={styles.field}>
+                  <span>姓名</span>
+                  <input onChange={(event) => updateInfo("name", event.target.value)} placeholder="请输入姓名" value={info.name} />
+                </label>
+                <label className={styles.field}>
+                  <span>手机号</span>
+                  <input inputMode="tel" onChange={(event) => updateInfo("phone", event.target.value)} placeholder="请输入手机号" value={info.phone} />
+                </label>
+                <label className={styles.field}>
+                  <span>出生日期</span>
+                  <input onChange={(event) => updateInfo("birthDate", event.target.value)} type="date" value={info.birthDate} />
+                </label>
+                <label className={styles.field}>
+                  <span>护照号码</span>
+                  <input onChange={(event) => updateInfo("passportNumber", event.target.value)} placeholder="请输入护照号码" value={info.passportNumber} />
+                </label>
+              </div>
 
-            <Button className={styles.primaryButton} onClick={() => setStep(3)}>
+              <div className={styles.formSection}>
+                <h2>出行信息</h2>
+                <label className={styles.field}>
+                  <span>出行国家</span>
+                  <input onChange={(event) => updateInfo("destination", event.target.value)} placeholder="日本" value={info.destination} />
+                </label>
+                <label className={styles.field}>
+                  <span>出行时间</span>
+                  <input onChange={(event) => updateInfo("travelDate", event.target.value)} type="date" value={info.travelDate} />
+                </label>
+                <label className={styles.field}>
+                  <span>职业类型</span>
+                  <select onChange={(event) => updateInfo("occupation", event.target.value)} value={info.occupation}>
+                    <option value="">请选择职业类型</option>
+                    {occupationOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            {!requiredInfoComplete ? <p className={styles.helperText}>请先完成必要信息。</p> : null}
+            <Button className={styles.primaryButton} disabled={!requiredInfoComplete} onClick={() => setStep(3)}>
               下一步，上传资料
             </Button>
           </section>
@@ -189,7 +225,7 @@ export default function IntakePage() {
             <div className={styles.sectionHeader}>
               <p className={styles.kicker}>资料上传</p>
               <h1 id="intake-title">请上传所需资料</h1>
-              <p>支持照片、截图或文件。请确保内容清晰可读。</p>
+              <p>请按要求上传资料，完成后即可进入确认提交。</p>
             </div>
 
             <div className={styles.documentList}>
@@ -202,6 +238,9 @@ export default function IntakePage() {
                     </div>
                     <div className={styles.documentCopy}>
                       <h2>{item.name}</h2>
+                      <span className={fileName ? styles.statusUploaded : styles.statusPending}>
+                        {fileName ? "已上传" : "待上传"}
+                      </span>
                       <p>{item.requirement}</p>
                       {fileName ? <strong>{fileName}</strong> : null}
                     </div>
@@ -214,6 +253,8 @@ export default function IntakePage() {
                 );
               })}
             </div>
+
+            <p className={styles.trustNote}>资料仅用于签证办理，我们会妥善保存。</p>
 
             <Button className={styles.primaryButton} onClick={() => setStep(4)}>
               下一步，确认提交
@@ -230,7 +271,7 @@ export default function IntakePage() {
             </div>
 
             <section className={styles.summaryCard}>
-              <h2>基础信息</h2>
+              <h2>申请人信息</h2>
               <dl>
                 <div><dt>姓名</dt><dd>{info.name || "未填写"}</dd></div>
                 <div><dt>手机号</dt><dd>{info.phone || "未填写"}</dd></div>
@@ -245,21 +286,35 @@ export default function IntakePage() {
             <section className={styles.summaryCard}>
               <h2>已上传资料</h2>
               <div className={styles.uploadSummary}>
-                {documents.map((item) => (
-                  <span className={uploaded[item.id] ? styles.uploadedTag : styles.missingTag} key={item.id}>
-                    {uploaded[item.id] ? "已上传" : "缺失"} · {item.name}
-                  </span>
+                {documents.filter((item) => uploaded[item.id]).map((item) => (
+                  <span className={styles.uploadedTag} key={item.id}>已上传 · {item.name}</span>
                 ))}
               </div>
             </section>
 
+            <section className={styles.summaryCard}>
+              <h2>待补充资料</h2>
+              <div className={styles.uploadSummary}>
+                {missingDocuments.length > 0 ? missingDocuments.map((item) => (
+                  <span className={styles.missingTag} key={item.id}>待补充 · {item.name}</span>
+                )) : <span className={styles.uploadedTag}>资料已全部上传</span>}
+              </div>
+            </section>
+
             {!allDocumentsUploaded ? (
-              <p className={styles.warning}>还有资料未上传，请补充后再提交。</p>
+              <p className={styles.warning}>还有资料未上传，请返回补充后再提交。</p>
             ) : null}
 
-            <Button className={styles.primaryButton} disabled={!allDocumentsUploaded} onClick={() => setStep(5)}>
-              确认提交
-            </Button>
+            <div className={styles.actionStack}>
+              <Button className={styles.primaryButton} disabled={!allDocumentsUploaded} onClick={handleSubmit}>
+                确认提交
+              </Button>
+              {!allDocumentsUploaded ? (
+                <button className={styles.secondaryButton} onClick={() => setStep(3)} type="button">
+                  返回上传资料
+                </button>
+              ) : null}
+            </div>
           </section>
         ) : null}
 
@@ -269,7 +324,7 @@ export default function IntakePage() {
               <Check size={30} strokeWidth={2.4} />
             </div>
             <h1 id="intake-title">资料已提交</h1>
-            <p>我们已收到您的资料，顾问会进行审核。如需补充资料，我们会通过企业微信联系您。</p>
+            <p>我们已收到您的资料，顾问会尽快完成审核。如需补充资料，我们会通过企业微信联系您。</p>
 
             <article className={styles.caseCard}>
               <div>
@@ -284,12 +339,14 @@ export default function IntakePage() {
                 <span>当前状态</span>
                 <strong>顾问审核中</strong>
               </div>
+              <div>
+                <span>后续通知</span>
+                <strong>企业微信</strong>
+              </div>
             </article>
 
-            <Button className={styles.primaryButton} onClick={() => undefined}>
-              查看提交记录
-            </Button>
-            <p className={styles.secondaryCopy}>您可以关闭页面，后续进展会通过企业微信通知。</p>
+            <p className={styles.mvpNote}>提交记录功能将在后续版本开放。</p>
+            <p className={styles.secondaryCopy}>返回首页 / 关闭页面即可，后续进展会通过企业微信通知。</p>
           </section>
         ) : null}
       </section>
