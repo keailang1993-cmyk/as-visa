@@ -2,5 +2,10 @@
   "name": "@as-visa/database",
   "private": true,
   "version": "0.1.0",
-  "type": "module"
+  "type": "module",
+  "main": "./src/client.ts",
+  "types": "./src/client.ts",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  }
 }

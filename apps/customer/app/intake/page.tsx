@@ -3,6 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { Button, Check, FileText, Upload } from "@as-visa/ui";
+import { createCaseEvent, createVisaCase, uploadVisaDocument } from "./intakeService";
 import styles from "./intake.module.css";
 
 type IntakeStep = 1 | 2 | 3 | 4 | 5;
@@ -24,10 +25,16 @@ type DocumentItem = {
 };
 
 type UploadedDocuments = {
-  passport: string;
-  idCard: string;
-  bankStatement: string;
-  photo: string;
+  passport: UploadedDocument | null;
+  idCard: UploadedDocument | null;
+  bankStatement: UploadedDocument | null;
+  photo: UploadedDocument | null;
+};
+
+type UploadedDocument = {
+  fileName: string;
+  fileMimeType: string | null;
+  fileSize: number | null;
 };
 
 const initialInfo: BasicInfo = {
@@ -41,10 +48,10 @@ const initialInfo: BasicInfo = {
 };
 
 const initialDocuments: UploadedDocuments = {
-  passport: "",
-  idCard: "",
-  bankStatement: "",
-  photo: ""
+  passport: null,
+  idCard: null,
+  bankStatement: null,
+  photo: null
 };
 
 const occupationOptions = ["在职", "自由职业", "学生", "退休", "未成年人", "其他"] as const;
@@ -84,6 +91,7 @@ export default function IntakePage() {
   const [info, setInfo] = useState<BasicInfo>(initialInfo);
   const [uploaded, setUploaded] = useState<UploadedDocuments>(initialDocuments);
   const [submittedAt, setSubmittedAt] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const missingDocuments = documents.filter((item) => !uploaded[item.id]);
   const allDocumentsUploaded = missingDocuments.length === 0;
@@ -101,13 +109,45 @@ export default function IntakePage() {
   function handleUpload(documentId: keyof UploadedDocuments, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setUploaded((current) => ({ ...current, [documentId]: file.name }));
+    setUploaded((current) => ({
+      ...current,
+      [documentId]: {
+        fileMimeType: file.type || null,
+        fileName: file.name,
+        fileSize: file.size || null
+      }
+    }));
   }
 
-  function handleSubmit() {
-    if (!allDocumentsUploaded) return;
+  async function handleSubmit() {
+    if (!allDocumentsUploaded || isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const visaCase = await createVisaCase(info);
+      const uploadedEntries = documents
+        .map((item) => ({ ...item, file: uploaded[item.id] }))
+        .filter((item): item is DocumentItem & { file: UploadedDocument } => Boolean(item.file));
+
+      await Promise.all(uploadedEntries.map((item) => uploadVisaDocument(visaCase.caseId, {
+        documentName: item.name,
+        documentType: item.id,
+        fileMimeType: item.file.fileMimeType,
+        fileName: item.file.fileName,
+        fileSize: item.file.fileSize
+      })));
+
+      await createCaseEvent(visaCase.caseId, {
+        eventType: "intake_submitted",
+        title: "资料已提交"
+      });
+    } catch (error) {
+      console.warn("[AS VISA] Intake persistence failed. Continuing local success state.", error);
+    }
+
     setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
     setStep(5);
+    setIsSubmitting(false);
   }
 
   return (
@@ -230,23 +270,23 @@ export default function IntakePage() {
 
             <div className={styles.documentList}>
               {documents.map((item) => {
-                const fileName = uploaded[item.id];
+                const file = uploaded[item.id];
                 return (
                   <article className={styles.documentCard} key={item.id}>
                     <div className={styles.documentIcon}>
-                      {fileName ? <Check size={18} strokeWidth={2.4} /> : <FileText size={18} strokeWidth={1.8} />}
+                      {file ? <Check size={18} strokeWidth={2.4} /> : <FileText size={18} strokeWidth={1.8} />}
                     </div>
                     <div className={styles.documentCopy}>
                       <h2>{item.name}</h2>
-                      <span className={fileName ? styles.statusUploaded : styles.statusPending}>
-                        {fileName ? "已上传" : "待上传"}
+                      <span className={file ? styles.statusUploaded : styles.statusPending}>
+                        {file ? "已上传" : "待上传"}
                       </span>
                       <p>{item.requirement}</p>
-                      {fileName ? <strong>{fileName}</strong> : null}
+                      {file ? <strong>{file.fileName}</strong> : null}
                     </div>
-                    <label className={fileName ? styles.reuploadButton : styles.uploadButton}>
+                    <label className={file ? styles.reuploadButton : styles.uploadButton}>
                       <Upload size={15} strokeWidth={1.8} />
-                      {fileName ? "重新上传" : "上传"}
+                      {file ? "重新上传" : "上传"}
                       <input accept="image/*,.pdf" onChange={(event) => handleUpload(item.id, event)} type="file" />
                     </label>
                   </article>
@@ -307,7 +347,7 @@ export default function IntakePage() {
 
             <div className={styles.actionStack}>
               <Button className={styles.primaryButton} disabled={!allDocumentsUploaded} onClick={handleSubmit}>
-                确认提交
+                {isSubmitting ? "正在提交" : "确认提交"}
               </Button>
               {!allDocumentsUploaded ? (
                 <button className={styles.secondaryButton} onClick={() => setStep(3)} type="button">

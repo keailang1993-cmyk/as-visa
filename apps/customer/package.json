@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@as-visa/database": "file:../../packages/database",
     "@as-visa/rule-engine": "file:../../packages/rule-engine",
     "@as-visa/ui": "file:../../packages/ui"
   }
