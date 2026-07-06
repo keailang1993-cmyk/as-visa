@@ -33,6 +33,7 @@ export type CaseEvent = {
   description: string | null;
   event_type: string;
   id: string;
+  staff_name?: string | null;
   title: string;
 };
 
@@ -108,7 +109,7 @@ export async function getAdminCaseDetail(caseId: string) {
       .from("case_events")
       .select("id, title, description, event_type, created_at")
       .eq("case_id", caseId)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
   ]);
 
   return {

@@ -1,4 +1,13 @@
 import Link from "next/link";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  FileCheck2,
+  Send,
+  ShieldCheck,
+  type LucideIcon
+} from "lucide-react";
 import { notFound } from "next/navigation";
 import { DocumentPreviewButton } from "../../_components/DocumentPreviewButton";
 import { StatusUpdateForm } from "../../_components/StatusUpdateForm";
@@ -19,6 +28,17 @@ type AdminCaseDetailPageProps = {
   }>;
 };
 
+const eventIcons: Record<string, LucideIcon> = {
+  completed: CheckCircle2,
+  intake_submitted: FileCheck2,
+  need_more_docs: AlertCircle,
+  processing: Clock3,
+  ready_to_submit: ShieldCheck,
+  reviewing: Clock3,
+  submitted: FileCheck2,
+  submitted_embassy: Send
+};
+
 function DataItem({ label, value }: { label: string; value: string }) {
   return (
     <div className={styles.dataItem}>
@@ -26,6 +46,11 @@ function DataItem({ label, value }: { label: string; value: string }) {
       <span className={styles.value}>{value}</span>
     </div>
   );
+}
+
+function TimelineIcon({ eventType }: { eventType: string }) {
+  const Icon = eventIcons[eventType] ?? Clock3;
+  return <Icon aria-hidden="true" size={15} strokeWidth={2} />;
 }
 
 export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPageProps) {
@@ -100,29 +125,47 @@ export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPag
                   ))}
                 </div>
               </section>
-
-              <section className={styles.section}>
-                <h2>Case Events</h2>
-                {caseEvents.length === 0 ? <p className={styles.muted}>暂无案件事件</p> : null}
-                <div className={styles.eventList}>
-                  {caseEvents.map((event) => (
-                    <article className={styles.eventCard} key={event.id}>
-                      <div>
-                        <span className={styles.label}>{event.event_type}</span>
-                        <span className={styles.value}>{event.title}</span>
-                      </div>
-                      <p className={styles.muted}>{event.description ?? "无描述"}</p>
-                      <span className={styles.filePath}>{formatDateTime(event.created_at)}</span>
-                    </article>
-                  ))}
-                </div>
-              </section>
             </div>
 
-            <aside className={`${styles.card} ${styles.actionPanel}`}>
-              <h2>Staff Actions</h2>
-              <p className={styles.muted}>更新案件状态后，系统会同步写入一条 case event。</p>
-              <StatusUpdateForm caseId={visaCase.id} currentStatus={visaCase.status} />
+            <aside className={styles.sideColumn}>
+              <section className={`${styles.card} ${styles.timelinePanel}`} aria-labelledby="case-timeline-heading">
+                <div className={styles.timelineHeader}>
+                  <div>
+                    <span className={styles.label}>Timeline</span>
+                    <h2 id="case-timeline-heading">案件动态</h2>
+                  </div>
+                  <span className={styles.timelineCount}>{caseEvents.length}</span>
+                </div>
+
+                {caseEvents.length === 0 ? <p className={styles.muted}>暂无案件事件</p> : null}
+
+                {caseEvents.length > 0 ? (
+                  <ol className={styles.timelineList}>
+                    {caseEvents.map((event) => (
+                      <li className={styles.timelineItem} key={event.id}>
+                        <span className={styles.timelineConnector} aria-hidden="true" />
+                        <span className={styles.timelineDot}>
+                          <TimelineIcon eventType={event.event_type} />
+                        </span>
+                        <article className={styles.timelineContent}>
+                          <div className={styles.timelineMeta}>
+                            <span>{formatDateTime(event.created_at)}</span>
+                            {event.staff_name ? <span>{event.staff_name}</span> : null}
+                          </div>
+                          <h3>{event.title}</h3>
+                          <p>{event.description ?? "无描述"}</p>
+                        </article>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </section>
+
+              <section className={`${styles.card} ${styles.actionPanel}`}>
+                <h2>Staff Actions</h2>
+                <p className={styles.muted}>更新案件状态后，系统会同步写入一条 case event。</p>
+                <StatusUpdateForm caseId={visaCase.id} currentStatus={visaCase.status} />
+              </section>
             </aside>
           </section>
         ) : null}
