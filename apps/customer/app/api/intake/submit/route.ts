@@ -35,6 +35,12 @@ const ALLOWED_FILE_TYPES = new Set([
   "image/webp"
 ]);
 
+type ExistingCase = {
+  case_code: string;
+  id: string;
+  status: string;
+};
+
 function createCaseCode() {
   const date = new Date();
   const datePart = [
@@ -174,6 +180,28 @@ export async function POST(request: Request) {
   const basicInfo = payload.basicInfo;
   const documents = payload.documents;
   const caseCode = createCaseCode();
+
+  const { data: existingCases, error: existingCaseError } = await supabase
+    .from("visa_cases")
+    .select("id, case_code, status")
+    .eq("applicant_phone", basicInfo.phone)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const existingCase = existingCases?.[0] as ExistingCase | undefined;
+
+  if (existingCaseError) {
+    console.error("[AS VISA] Failed to check existing visa case.", existingCaseError);
+    return NextResponse.json({ error: "Failed to check existing visa case" }, { status: 500 });
+  }
+
+  if (existingCase) {
+    return NextResponse.json({
+      caseCode: existingCase.case_code,
+      caseId: existingCase.id,
+      mode: "resume",
+      status: existingCase.status
+    });
+  }
 
   const { data: visaCase, error: caseError } = await supabase
     .from("visa_cases")
