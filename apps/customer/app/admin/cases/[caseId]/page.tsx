@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { DocumentPreviewButton } from "../../_components/DocumentPreviewButton";
+import { SupplementRequestForm } from "../../_components/SupplementRequestForm";
 import { StatusUpdateForm } from "../../_components/StatusUpdateForm";
 import styles from "../../admin.module.css";
 import {
@@ -36,7 +37,9 @@ const eventIcons: Record<string, LucideIcon> = {
   ready_to_submit: ShieldCheck,
   reviewing: Clock3,
   submitted: FileCheck2,
-  submitted_embassy: Send
+  submitted_embassy: Send,
+  supplement_requested: AlertCircle,
+  supplement_uploaded: FileCheck2
 };
 
 function DataItem({ label, value }: { label: string; value: string }) {
@@ -164,6 +167,7 @@ export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPag
               <section className={`${styles.card} ${styles.actionPanel}`}>
                 <h2>Staff Actions</h2>
                 <p className={styles.muted}>更新案件状态后，系统会同步写入一条 case event。</p>
+                <SupplementRequestForm caseId={visaCase.id} />
                 <StatusUpdateForm caseId={visaCase.id} currentStatus={visaCase.status} />
               </section>
             </aside>
