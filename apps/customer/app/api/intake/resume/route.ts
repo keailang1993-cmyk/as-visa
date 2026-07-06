@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
   const { data: cases, error: caseError } = await supabase
     .from("visa_cases")
-    .select("id, case_code, status, visa_type, destination_country")
+    .select("id, case_code, created_at, status, visa_type, destination_country")
     .eq("applicant_phone", phone)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -80,9 +80,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Failed to load supplement requests" }, { status: 500 });
   }
 
+  const { data: caseEvents, error: eventsError } = await supabase
+    .from("case_events")
+    .select("id, title, description, created_at")
+    .eq("case_id", visaCase.id)
+    .order("created_at", { ascending: false });
+
+  if (eventsError) {
+    console.error("[AS VISA] Failed to load case events.", eventsError);
+    return NextResponse.json({ error: "Failed to load case events" }, { status: 500 });
+  }
+
   return NextResponse.json({
     caseCode: visaCase.case_code,
     caseId: visaCase.id,
+    caseEvents: caseEvents ?? [],
+    createdAt: visaCase.created_at,
     destinationCountry: visaCase.destination_country,
     exists: true,
     status: visaCase.status,
