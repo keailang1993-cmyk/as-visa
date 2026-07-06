@@ -12,6 +12,14 @@ const ALLOWED_FILE_TYPES = new Set([
   "image/webp"
 ]);
 
+const FILE_EXTENSION_MIME_TYPES: Record<string, string> = {
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  pdf: "application/pdf",
+  png: "image/png",
+  webp: "image/webp"
+};
+
 const documentCopy: Record<string, { name: string; requirement: string }> = {
   bankStatement: {
     name: "银行流水",
@@ -60,10 +68,38 @@ function createStoragePath(caseId: string, requestId: string, documentType: stri
   return `cases/${caseId}/supplements/${requestId}/${documentType}/${Date.now()}-${safeFileName(fileName)}`;
 }
 
-function validateFile(file: File) {
+function createApiError(step: string, message: string, status: number, detail?: unknown) {
+  return NextResponse.json({
+    detail,
+    error: message,
+    step
+  }, { status });
+}
+
+function getErrorDetail(error: unknown) {
+  if (!error) return null;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  return String(error);
+}
+
+function inferMimeType(file: File, fallbackFileName?: string | null, fallbackMimeType?: string | null) {
+  if (file.type) return file.type;
+  if (fallbackMimeType) return fallbackMimeType;
+
+  const fileName = fallbackFileName || file.name;
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  return extension ? FILE_EXTENSION_MIME_TYPES[extension] ?? "" : "";
+}
+
+function validateFile(file: File, fileName?: string | null, fileMimeType?: string | null) {
   if (file.size === 0) return "File is required";
   if (file.size > MAX_FILE_SIZE) return "File exceeds 10MB limit";
-  if (!ALLOWED_FILE_TYPES.has(file.type)) return "File type is not allowed";
+  if (!ALLOWED_FILE_TYPES.has(inferMimeType(file, fileName, fileMimeType))) {
+    return "File type is not allowed";
+  }
   return null;
 }
 
@@ -138,37 +174,67 @@ export async function POST(request: Request) {
   const supabase = createServerSupabaseClient();
 
   if (!supabase) {
-    return NextResponse.json({ error: "Supabase server configuration is missing" }, { status: 503 });
+    return createApiError("config", "Supabase server configuration is missing", 503);
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+
+  try {
+    formData = await request.formData();
+  } catch (error) {
+    console.error("[AS VISA] Invalid supplement multipart payload.", error);
+    return createApiError("parse_form_data", "Invalid multipart request body", 400, getErrorDetail(error));
+  }
+
   const requestId = formData.get("requestId");
   const documentValues = formData.getAll("documents");
   const fileValues = formData.getAll("files");
 
   if (typeof requestId !== "string" || !requestId) {
-    return NextResponse.json({ error: "requestId is required" }, { status: 400 });
+    return createApiError("validate_request", "requestId is required", 400);
   }
 
   if (documentValues.length === 0 || documentValues.length !== fileValues.length) {
-    return NextResponse.json({ error: "Document metadata and files are required" }, { status: 400 });
+    return createApiError("validate_request", "Document metadata and files are required", 400, {
+      documentCount: documentValues.length,
+      fileCount: fileValues.length
+    });
   }
 
-  const documents = documentValues.map((value) => {
-    if (typeof value !== "string") {
-      throw new Error("Invalid document metadata");
-    }
-    return JSON.parse(value) as SupplementDocumentPayload;
-  });
-  const files = fileValues.map((value) => {
-    if (!isFile(value)) {
-      throw new Error("Invalid file payload");
-    }
-    return value;
-  });
+  let documents: SupplementDocumentPayload[];
+  let files: File[];
 
-  if (files.some((file) => validateFile(file) !== null)) {
-    return NextResponse.json({ error: "Invalid files" }, { status: 400 });
+  try {
+    documents = documentValues.map((value) => {
+      if (typeof value !== "string") {
+        throw new Error("Invalid document metadata");
+      }
+      return JSON.parse(value) as SupplementDocumentPayload;
+    });
+    files = fileValues.map((value) => {
+      if (!isFile(value)) {
+        throw new Error("Invalid file payload");
+      }
+      return value;
+    });
+  } catch (error) {
+    console.error("[AS VISA] Failed to parse supplement document payload.", error);
+    return createApiError("parse_documents", "Invalid document metadata or file payload", 400, getErrorDetail(error));
+  }
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const document = documents[index];
+    const validationError = validateFile(file, document.fileName, document.fileMimeType);
+
+    if (validationError) {
+      return createApiError("validate_files", validationError, 400, {
+        fileName: document.fileName || file.name,
+        fileMimeType: document.fileMimeType ?? null,
+        inferredMimeType: inferMimeType(file, document.fileName, document.fileMimeType),
+        receivedMimeType: file.type || null
+      });
+    }
   }
 
   const { data: supplementRequest, error: requestError } = await supabase
@@ -179,7 +245,7 @@ export async function POST(request: Request) {
     .single();
 
   if (requestError || !supplementRequest) {
-    return NextResponse.json({ error: "Active supplement request not found" }, { status: 404 });
+    return createApiError("load_supplement_request", "Active supplement request not found", 404, getErrorDetail(requestError));
   }
 
   const caseId = supplementRequest.case_id as string;
@@ -191,17 +257,18 @@ export async function POST(request: Request) {
     const file = files[index];
     const fileName = document.fileName || file.name;
     const documentType = document.documentType || "other";
+    const fileMimeType = inferMimeType(file, fileName, document.fileMimeType);
     const storagePath = createStoragePath(caseId, requestId, documentType, fileName);
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(storagePath, fileBuffer, {
-      contentType: file.type,
+      contentType: fileMimeType,
       upsert: false
     });
 
     if (uploadError) {
       console.error("[AS VISA] Failed to upload supplement file.", uploadError);
       await removeUploadedFiles(uploadedStoragePaths, supabase);
-      return NextResponse.json({ error: "Failed to upload supplement file" }, { status: 500 });
+      return createApiError("storage_upload", "Failed to upload supplement file", 500, getErrorDetail(uploadError));
     }
 
     uploadedStoragePaths.push(storagePath);
@@ -209,7 +276,7 @@ export async function POST(request: Request) {
       case_id: caseId,
       document_name: document.documentName || documentCopy[documentType]?.name || "其他资料",
       document_type: documentType,
-      file_mime_type: file.type || document.fileMimeType || null,
+      file_mime_type: fileMimeType || null,
       file_name: fileName,
       file_path: storagePath,
       file_size: file.size || document.fileSize || null,
@@ -222,7 +289,7 @@ export async function POST(request: Request) {
   if (documentsError) {
     console.error("[AS VISA] Failed to create supplement document metadata.", documentsError);
     await removeUploadedFiles(uploadedStoragePaths, supabase);
-    return NextResponse.json({ error: "Failed to create supplement documents" }, { status: 500 });
+    return createApiError("insert_visa_documents", "Failed to create supplement documents", 500, getErrorDetail(documentsError));
   }
 
   const { error: updateRequestError } = await supabase
@@ -235,7 +302,7 @@ export async function POST(request: Request) {
 
   if (updateRequestError) {
     console.error("[AS VISA] Failed to complete supplement request.", updateRequestError);
-    return NextResponse.json({ error: "Failed to complete supplement request" }, { status: 500 });
+    return createApiError("complete_supplement_request", "Failed to complete supplement request", 500, getErrorDetail(updateRequestError));
   }
 
   const { error: caseUpdateError } = await supabase
@@ -245,7 +312,7 @@ export async function POST(request: Request) {
 
   if (caseUpdateError) {
     console.error("[AS VISA] Failed to return case to review.", caseUpdateError);
-    return NextResponse.json({ error: "Failed to update case status" }, { status: 500 });
+    return createApiError("update_case_status", "Failed to update case status", 500, getErrorDetail(caseUpdateError));
   }
 
   const { error: eventError } = await supabase.from("case_events").insert({
@@ -257,7 +324,7 @@ export async function POST(request: Request) {
 
   if (eventError) {
     console.error("[AS VISA] Failed to create supplement uploaded event.", eventError);
-    return NextResponse.json({ error: "Failed to create case event" }, { status: 500 });
+    return createApiError("insert_case_event", "Failed to create case event", 500, getErrorDetail(eventError));
   }
 
   return NextResponse.json({
