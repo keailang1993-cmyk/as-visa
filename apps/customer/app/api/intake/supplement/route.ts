@@ -305,14 +305,28 @@ export async function POST(request: Request) {
     return createApiError("complete_supplement_request", "Failed to complete supplement request", 500, getErrorDetail(updateRequestError));
   }
 
-  const { error: caseUpdateError } = await supabase
-    .from("visa_cases")
-    .update({ status: "reviewing" })
-    .eq("id", caseId);
+  const { data: remainingRequests, error: remainingRequestsError } = await supabase
+    .from("supplement_requests")
+    .select("id")
+    .eq("case_id", caseId)
+    .eq("status", "active")
+    .limit(1);
 
-  if (caseUpdateError) {
-    console.error("[AS VISA] Failed to return case to review.", caseUpdateError);
-    return createApiError("update_case_status", "Failed to update case status", 500, getErrorDetail(caseUpdateError));
+  if (remainingRequestsError) {
+    console.error("[AS VISA] Failed to check remaining supplement requests.", remainingRequestsError);
+    return createApiError("check_remaining_supplements", "Failed to check remaining supplement requests", 500, getErrorDetail(remainingRequestsError));
+  }
+
+  if ((remainingRequests ?? []).length === 0) {
+    const { error: caseUpdateError } = await supabase
+      .from("visa_cases")
+      .update({ status: "reviewing" })
+      .eq("id", caseId);
+
+    if (caseUpdateError) {
+      console.error("[AS VISA] Failed to return case to review.", caseUpdateError);
+      return createApiError("update_case_status", "Failed to update case status", 500, getErrorDetail(caseUpdateError));
+    }
   }
 
   const { error: eventError } = await supabase.from("case_events").insert({
