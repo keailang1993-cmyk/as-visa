@@ -47,6 +47,23 @@ export type SupplementSubmitInput = {
   requestId: string;
 };
 
+type ApiErrorPayload = {
+  detail?: unknown;
+  error?: string;
+  step?: string;
+};
+
+async function readApiError(response: Response, fallbackMessage: string) {
+  try {
+    const payload = await response.json() as ApiErrorPayload;
+    const detail = typeof payload.detail === "string" ? payload.detail : "";
+    const step = payload.step ? ` [${payload.step}]` : "";
+    return `${payload.error || fallbackMessage}${step}${detail ? `: ${detail}` : ""}`;
+  } catch {
+    return fallbackMessage;
+  }
+}
+
 function createMockCaseCode() {
   const date = new Date();
   const datePart = [
@@ -155,7 +172,10 @@ export async function submitSupplement(input: SupplementSubmitInput) {
   });
 
   if (!response.ok) {
-    throw new Error(`Supplement submit failed with status ${response.status}`);
+    throw new Error(await readApiError(
+      response,
+      `Supplement submit failed with status ${response.status}`
+    ));
   }
 
   return await response.json() as { caseId: string; mode: "supabase"; requestId: string };
