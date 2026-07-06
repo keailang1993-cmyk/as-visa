@@ -49,9 +49,18 @@ export type ResumeSupplementRequest = {
   requestId: string;
 };
 
+export type ResumeCaseEvent = {
+  created_at: string;
+  description: string | null;
+  id: string;
+  title: string;
+};
+
 export type ResumeCaseResult = {
+  caseEvents?: ResumeCaseEvent[];
   caseCode?: string;
   caseId?: string;
+  createdAt?: string;
   destinationCountry?: string;
   exists: boolean;
   status?: string;
