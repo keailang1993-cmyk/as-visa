@@ -28,6 +28,25 @@ export type IntakeSubmitResult = {
   mode: "mock" | "supabase";
 };
 
+export type SupplementRequestDocument = {
+  id: string;
+  name: string;
+  requirement: string;
+};
+
+export type ActiveSupplementRequest = {
+  caseCode: string;
+  caseId: string;
+  message: string;
+  requestedDocuments: SupplementRequestDocument[];
+  requestId: string;
+};
+
+export type SupplementSubmitInput = {
+  documents: IntakeDocumentInput[];
+  requestId: string;
+};
+
 function createMockCaseCode() {
   const date = new Date();
   const datePart = [
@@ -84,4 +103,60 @@ export async function submitIntake(input: IntakeSubmitInput): Promise<IntakeSubm
 
     throw error;
   }
+}
+
+export async function getActiveSupplementRequest(params: {
+  caseCode?: string | null;
+  caseId?: string | null;
+}): Promise<ActiveSupplementRequest | null> {
+  const searchParams = new URLSearchParams();
+
+  if (params.caseId) {
+    searchParams.set("caseId", params.caseId);
+  }
+
+  if (params.caseCode) {
+    searchParams.set("caseCode", params.caseCode);
+  }
+
+  if (!searchParams.toString()) return null;
+
+  const response = await fetch(`/api/intake/supplement?${searchParams.toString()}`, {
+    method: "GET"
+  });
+
+  if (response.status === 404) return null;
+
+  if (!response.ok) {
+    throw new Error(`Supplement lookup failed with status ${response.status}`);
+  }
+
+  return await response.json() as ActiveSupplementRequest;
+}
+
+export async function submitSupplement(input: SupplementSubmitInput) {
+  const formData = new FormData();
+  formData.append("requestId", input.requestId);
+
+  input.documents.forEach((document) => {
+    formData.append("documents", JSON.stringify({
+      documentName: document.documentName,
+      documentType: document.documentType,
+      fileMimeType: document.fileMimeType ?? null,
+      fileName: document.fileName,
+      fileSize: document.fileSize ?? null
+    }));
+    formData.append("files", document.file, document.fileName);
+  });
+
+  const response = await fetch("/api/intake/supplement", {
+    body: formData,
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supplement submit failed with status ${response.status}`);
+  }
+
+  return await response.json() as { caseId: string; mode: "supabase"; requestId: string };
 }
