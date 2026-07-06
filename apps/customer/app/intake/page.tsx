@@ -1,9 +1,14 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Check, FileText, Upload } from "@as-visa/ui";
-import { submitIntake } from "./intakeService";
+import {
+  getActiveSupplementRequest,
+  submitIntake,
+  submitSupplement,
+  type ActiveSupplementRequest
+} from "./intakeService";
 import styles from "./intake.module.css";
 
 type IntakeStep = 1 | 2 | 3 | 4 | 5;
@@ -91,6 +96,12 @@ export default function IntakePage() {
   const [step, setStep] = useState<IntakeStep>(1);
   const [info, setInfo] = useState<BasicInfo>(initialInfo);
   const [uploaded, setUploaded] = useState<UploadedDocuments>(initialDocuments);
+  const [supplementRequest, setSupplementRequest] = useState<ActiveSupplementRequest | null>(null);
+  const [supplementUploaded, setSupplementUploaded] = useState<Record<string, UploadedDocument>>({});
+  const [isCheckingSupplement, setIsCheckingSupplement] = useState(true);
+  const [isSupplementSubmitting, setIsSupplementSubmitting] = useState(false);
+  const [supplementSubmitted, setSupplementSubmitted] = useState(false);
+  const [supplementError, setSupplementError] = useState("");
   const [submittedAt, setSubmittedAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -103,6 +114,30 @@ export default function IntakePage() {
     info.passportNumber.trim() &&
     info.occupation
   );
+  const supplementMissingDocuments = supplementRequest?.requestedDocuments.filter((item) => !supplementUploaded[item.id]) ?? [];
+  const allSupplementDocumentsUploaded = Boolean(supplementRequest && supplementMissingDocuments.length === 0);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const caseId = searchParams.get("caseId");
+    const caseCode = searchParams.get("caseCode");
+
+    if (!caseId && !caseCode) {
+      setIsCheckingSupplement(false);
+      return;
+    }
+
+    getActiveSupplementRequest({ caseCode, caseId })
+      .then((request) => {
+        setSupplementRequest(request);
+      })
+      .catch((error) => {
+        console.warn("[AS VISA] Supplement request lookup failed.", error);
+      })
+      .finally(() => {
+        setIsCheckingSupplement(false);
+      });
+  }, []);
 
   function updateInfo(field: keyof BasicInfo, value: string) {
     setInfo((current) => ({ ...current, [field]: value }));
@@ -112,6 +147,20 @@ export default function IntakePage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploaded((current) => ({
+      ...current,
+      [documentId]: {
+        file,
+        fileMimeType: file.type || null,
+        fileName: file.name,
+        fileSize: file.size || null
+      }
+    }));
+  }
+
+  function handleSupplementUpload(documentId: string, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSupplementUploaded((current) => ({
       ...current,
       [documentId]: {
         file,
@@ -152,6 +201,155 @@ export default function IntakePage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  async function handleSupplementSubmit() {
+    if (!supplementRequest || !allSupplementDocumentsUploaded || isSupplementSubmitting) return;
+    setIsSupplementSubmitting(true);
+    setSupplementError("");
+
+    try {
+      await submitSupplement({
+        documents: supplementRequest.requestedDocuments.map((item) => {
+          const uploadedDocument = supplementUploaded[item.id];
+          return {
+            documentName: item.name,
+            documentType: item.id,
+            file: uploadedDocument.file,
+            fileMimeType: uploadedDocument.fileMimeType,
+            fileName: uploadedDocument.fileName,
+            fileSize: uploadedDocument.fileSize
+          };
+        }),
+        requestId: supplementRequest.requestId
+      });
+
+      setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
+      setSupplementSubmitted(true);
+    } catch (error) {
+      console.warn("[AS VISA] Supplement submit failed.", error);
+      setSupplementError("补充资料提交失败，请稍后重试或联系顾问。");
+    } finally {
+      setIsSupplementSubmitting(false);
+    }
+  }
+
+  if (isCheckingSupplement) {
+    return (
+      <main className={`${styles.page} noir-scope`}>
+        <section className={styles.shell} aria-labelledby="intake-title">
+          <header className={styles.header}>
+            <div>
+              <p className={styles.brand}>AS VISA</p>
+              <span>资料办理</span>
+            </div>
+            <strong className={styles.caseChip}>日本旅游签证</strong>
+          </header>
+          <section className={styles.step}>
+            <div className={styles.sectionHeader}>
+              <p className={styles.kicker}>Checking</p>
+              <h1 id="intake-title">正在确认资料状态</h1>
+              <p>请稍候，我们正在为您确认是否有需要补充的资料。</p>
+            </div>
+          </section>
+        </section>
+      </main>
+    );
+  }
+
+  if (supplementRequest) {
+    return (
+      <main className={`${styles.page} noir-scope`}>
+        <section className={styles.shell} aria-labelledby="supplement-title">
+          <header className={styles.header}>
+            <div>
+              <p className={styles.brand}>AS VISA</p>
+              <span>补充资料</span>
+            </div>
+            <strong className={styles.caseChip}>{supplementRequest.caseCode}</strong>
+          </header>
+
+          {!supplementSubmitted ? (
+            <section className={styles.step}>
+              <div className={styles.sectionHeader}>
+                <p className={styles.kicker}>Supplement Center</p>
+                <h1 id="supplement-title">请补充所需资料</h1>
+                <p>无需重新填写基础信息，只需要上传顾问要求补充的文件。</p>
+              </div>
+
+              <article className={styles.supplementMessage}>
+                <span>顾问说明</span>
+                <p>{supplementRequest.message}</p>
+              </article>
+
+              <div className={styles.documentList}>
+                {supplementRequest.requestedDocuments.map((item) => {
+                  const file = supplementUploaded[item.id];
+                  return (
+                    <article className={styles.documentCard} key={item.id}>
+                      <div className={styles.documentIcon}>
+                        {file ? <Check size={18} strokeWidth={2.4} /> : <FileText size={18} strokeWidth={1.8} />}
+                      </div>
+                      <div className={styles.documentCopy}>
+                        <h2>{item.name}</h2>
+                        <span className={file ? styles.statusUploaded : styles.statusPending}>
+                          {file ? "已上传" : "待上传"}
+                        </span>
+                        <p>{item.requirement}</p>
+                        {file ? <strong>{file.fileName}</strong> : null}
+                      </div>
+                      <label className={file ? styles.reuploadButton : styles.uploadButton}>
+                        <Upload size={15} strokeWidth={1.8} />
+                        {file ? "重新上传" : "上传"}
+                        <input accept="image/*,.pdf" onChange={(event) => handleSupplementUpload(item.id, event)} type="file" />
+                      </label>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {supplementMissingDocuments.length > 0 ? (
+                <p className={styles.warning}>还有资料未上传，请补充后再提交。</p>
+              ) : null}
+              {supplementError ? <p className={styles.submitError}>{supplementError}</p> : null}
+
+              <Button
+                className={styles.primaryButton}
+                disabled={!allSupplementDocumentsUploaded || isSupplementSubmitting}
+                onClick={handleSupplementSubmit}
+              >
+                {isSupplementSubmitting ? "正在提交" : "提交补充资料"}
+              </Button>
+            </section>
+          ) : (
+            <section className={`${styles.step} ${styles.successStep}`}>
+              <div className={styles.successIcon}>
+                <Check size={30} strokeWidth={2.4} />
+              </div>
+              <h1 id="supplement-title">补充资料已提交</h1>
+              <p>我们已收到您补充的资料，案件已返回顾问审核中。</p>
+
+              <article className={styles.caseCard}>
+                <div>
+                  <span>提交时间</span>
+                  <strong>{submittedAt}</strong>
+                </div>
+                <div>
+                  <span>当前状态</span>
+                  <strong>等待顾问审核</strong>
+                </div>
+                <div>
+                  <span>后续通知</span>
+                  <strong>企业微信</strong>
+                </div>
+              </article>
+
+              <p className={styles.secondaryCopy}>您可以关闭页面，后续进展会通过企业微信通知。</p>
+            </section>
+          )}
+        </section>
+      </main>
+    );
   }
 
   return (
