@@ -37,6 +37,15 @@ export type CaseEvent = {
   title: string;
 };
 
+export type CaseNote = {
+  case_id: string;
+  content: string;
+  created_at: string;
+  id: string;
+  staff_name: string;
+  updated_at: string;
+};
+
 export function formatDateTime(value: string | null | undefined) {
   if (!value) return "未填写";
   return new Intl.DateTimeFormat("zh-CN", {
@@ -88,13 +97,14 @@ export async function getAdminCaseDetail(caseId: string) {
   if (!supabase) {
     return {
       caseEvents: [],
+      caseNotes: [],
       documents: [],
       error: "Supabase server configuration is missing.",
       visaCase: null
     };
   }
 
-  const [caseResult, documentResult, eventResult] = await Promise.all([
+  const [caseResult, documentResult, eventResult, noteResult] = await Promise.all([
     supabase
       .from("visa_cases")
       .select("id, case_code, applicant_name, applicant_phone, applicant_birth_date, passport_number, travel_date, occupation_type, visa_type, destination_country, status, created_at")
@@ -109,13 +119,19 @@ export async function getAdminCaseDetail(caseId: string) {
       .from("case_events")
       .select("id, title, description, event_type, created_at")
       .eq("case_id", caseId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("case_notes")
+      .select("id, case_id, staff_name, content, created_at, updated_at")
+      .eq("case_id", caseId)
+      .order("created_at", { ascending: false })
   ]);
 
   return {
     caseEvents: (eventResult.data ?? []) as CaseEvent[],
+    caseNotes: (noteResult.data ?? []) as CaseNote[],
     documents: (documentResult.data ?? []) as VisaDocument[],
-    error: caseResult.error?.message ?? documentResult.error?.message ?? eventResult.error?.message ?? null,
+    error: caseResult.error?.message ?? documentResult.error?.message ?? eventResult.error?.message ?? noteResult.error?.message ?? null,
     visaCase: caseResult.data as VisaCase | null
   };
 }
