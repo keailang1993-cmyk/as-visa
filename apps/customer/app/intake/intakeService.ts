@@ -25,7 +25,8 @@ export type IntakeSubmitInput = {
 export type IntakeSubmitResult = {
   caseCode: string;
   caseId: string;
-  mode: "mock" | "supabase";
+  mode: "mock" | "resume" | "supabase";
+  status?: string;
 };
 
 export type SupplementRequestDocument = {
@@ -40,6 +41,22 @@ export type ActiveSupplementRequest = {
   message: string;
   requestedDocuments: SupplementRequestDocument[];
   requestId: string;
+};
+
+export type ResumeSupplementRequest = {
+  message: string;
+  requestedDocuments: SupplementRequestDocument[];
+  requestId: string;
+};
+
+export type ResumeCaseResult = {
+  caseCode?: string;
+  caseId?: string;
+  destinationCountry?: string;
+  exists: boolean;
+  status?: string;
+  supplementRequests?: ResumeSupplementRequest[];
+  visaType?: string;
 };
 
 export type SupplementSubmitInput = {
@@ -149,6 +166,28 @@ export async function getActiveSupplementRequest(params: {
   }
 
   return await response.json() as ActiveSupplementRequest;
+}
+
+export async function getResumeCase(phone: string): Promise<ResumeCaseResult> {
+  const trimmedPhone = phone.trim();
+
+  if (!trimmedPhone) {
+    return { exists: false };
+  }
+
+  const searchParams = new URLSearchParams({ phone: trimmedPhone });
+  const response = await fetch(`/api/intake/resume?${searchParams.toString()}`, {
+    method: "GET"
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(
+      response,
+      `Resume lookup failed with status ${response.status}`
+    ));
+  }
+
+  return await response.json() as ResumeCaseResult;
 }
 
 export async function submitSupplement(input: SupplementSubmitInput) {
