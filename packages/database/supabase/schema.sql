@@ -97,7 +97,7 @@ for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
-drop policy if exists "anon can create intake visa documents" on public.visisa_documents;
+drop policy if exists "anon can create intake visa documents" on public.visa_documents;
 
 drop policy if exists "service role can manage case events" on public.case_events;
 create policy "service role can manage case events"
