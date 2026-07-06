@@ -228,7 +228,9 @@ export default function IntakePage() {
       setSupplementSubmitted(true);
     } catch (error) {
       console.warn("[AS VISA] Supplement submit failed.", error);
-      setSupplementError("补充资料提交失败，请稍后重试或联系顾问。");
+      setSupplementError(error instanceof Error
+        ? `补充资料提交失败：${error.message}`
+        : "补充资料提交失败，请稍后重试或联系顾问。");
     } finally {
       setIsSupplementSubmitting(false);
     }
