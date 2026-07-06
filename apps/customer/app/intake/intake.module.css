@@ -236,7 +236,8 @@
 
 .helperText,
 .trustNote,
-.mvpNote {
+.mvpNote,
+.supplementMessage {
   background: var(--noir-color-surface);
   border: var(--noir-space-px) solid var(--noir-color-border);
   border-radius: var(--noir-radius-xl);
@@ -244,6 +245,23 @@
   font: 600 0.8125rem/1.5 var(--noir-font-sans);
   margin: 0;
   padding: var(--noir-space-4);
+}
+
+.supplementMessage {
+  display: grid;
+  gap: var(--noir-space-2);
+}
+
+.supplementMessage span {
+  color: var(--noir-color-muted);
+  font: 700 0.75rem/1.35 var(--noir-font-sans);
+  text-transform: uppercase;
+}
+
+.supplementMessage p {
+  color: var(--noir-color-foreground);
+  font: 600 0.9375rem/1.6 var(--noir-font-sans);
+  margin: 0;
 }
 
 .documentCard {
