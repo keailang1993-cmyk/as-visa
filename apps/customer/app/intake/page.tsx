@@ -5,9 +5,12 @@ import { useEffect, useState } from "react";
 import { Button, Check, FileText, Upload } from "@as-visa/ui";
 import {
   getActiveSupplementRequest,
+  getResumeCase,
   submitIntake,
   submitSupplement,
-  type ActiveSupplementRequest
+  type ActiveSupplementRequest,
+  type ResumeCaseResult,
+  type ResumeSupplementRequest
 } from "./intakeService";
 import styles from "./intake.module.css";
 
@@ -92,13 +95,38 @@ const documents: DocumentItem[] = [
   }
 ];
 
+const resumeStatusCopy: Record<string, { description: string; title: string }> = {
+  approved: {
+    description: "您的资料已经审核通过，顾问会继续为您推进后续办理。",
+    title: "资料审核通过"
+  },
+  completed: {
+    description: "您的签证办理已经完成，感谢您使用 AS VISA。",
+    title: "签证办理完成"
+  },
+  need_more_docs: {
+    description: "顾问需要您补充部分资料，请按提示上传即可。",
+    title: "需要补充资料"
+  },
+  reviewing: {
+    description: "顾问正在审核您的资料。如需补充资料，我们会通过企业微信联系您。",
+    title: "顾问审核中"
+  },
+  submitted: {
+    description: "我们已收到您的资料，正在等待顾问审核。",
+    title: "资料已提交，等待顾问审核"
+  }
+};
+
 export default function IntakePage() {
   const [step, setStep] = useState<IntakeStep>(1);
   const [info, setInfo] = useState<BasicInfo>(initialInfo);
   const [uploaded, setUploaded] = useState<UploadedDocuments>(initialDocuments);
   const [supplementRequest, setSupplementRequest] = useState<ActiveSupplementRequest | null>(null);
   const [supplementUploaded, setSupplementUploaded] = useState<Record<string, UploadedDocument>>({});
+  const [resumeCase, setResumeCase] = useState<ResumeCaseResult | null>(null);
   const [isCheckingSupplement, setIsCheckingSupplement] = useState(true);
+  const [isCheckingResume, setIsCheckingResume] = useState(false);
   const [isSupplementSubmitting, setIsSupplementSubmitting] = useState(false);
   const [supplementSubmitted, setSupplementSubmitted] = useState(false);
   const [supplementError, setSupplementError] = useState("");
@@ -114,8 +142,19 @@ export default function IntakePage() {
     info.passportNumber.trim() &&
     info.occupation
   );
-  const supplementMissingDocuments = supplementRequest?.requestedDocuments.filter((item) => !supplementUploaded[item.id]) ?? [];
-  const allSupplementDocumentsUploaded = Boolean(supplementRequest && supplementMissingDocuments.length === 0);
+  const supplementRequests: ResumeSupplementRequest[] = resumeCase?.supplementRequests ??
+    (supplementRequest ? [{
+      message: supplementRequest.message,
+      requestedDocuments: supplementRequest.requestedDocuments,
+      requestId: supplementRequest.requestId
+    }] : []);
+  const hasSupplementCenter = supplementRequests.length > 0;
+  const supplementMissingDocuments = supplementRequests.flatMap((requestItem) => (
+    requestItem.requestedDocuments
+      .filter((item) => !supplementUploaded[`${requestItem.requestId}:${item.id}`])
+      .map((item) => ({ ...item, requestId: requestItem.requestId }))
+  ));
+  const allSupplementDocumentsUploaded = hasSupplementCenter && supplementMissingDocuments.length === 0;
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -171,6 +210,30 @@ export default function IntakePage() {
     }));
   }
 
+  async function handleBasicInfoNext() {
+    if (!requiredInfoComplete || isCheckingResume) return;
+    setIsCheckingResume(true);
+    setSubmitError("");
+
+    try {
+      const existingCase = await getResumeCase(info.phone);
+
+      if (existingCase.exists) {
+        setResumeCase(existingCase);
+        return;
+      }
+
+      setStep(3);
+    } catch (error) {
+      console.warn("[AS VISA] Resume lookup failed.", error);
+      setSubmitError(error instanceof Error
+        ? `查询已有案件失败：${error.message}`
+        : "查询已有案件失败，请稍后重试。");
+    } finally {
+      setIsCheckingResume(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!allDocumentsUploaded || isSubmitting) return;
     setIsSubmitting(true);
@@ -181,7 +244,7 @@ export default function IntakePage() {
         .map((item) => ({ ...item, file: uploaded[item.id] }))
         .filter((item): item is DocumentItem & { file: UploadedDocument } => Boolean(item.file));
 
-      await submitIntake({
+      const result = await submitIntake({
         basicInfo: info,
         documents: uploadedEntries.map((item) => ({
           documentName: item.name,
@@ -192,6 +255,17 @@ export default function IntakePage() {
           fileSize: item.file.fileSize
         }))
       });
+
+      if (result.mode === "resume") {
+        const existingCase = await getResumeCase(info.phone);
+        setResumeCase(existingCase.exists ? existingCase : {
+          caseCode: result.caseCode,
+          caseId: result.caseId,
+          exists: true,
+          status: result.status
+        });
+        return;
+      }
 
       setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
       setStep(5);
@@ -204,14 +278,14 @@ export default function IntakePage() {
   }
 
   async function handleSupplementSubmit() {
-    if (!supplementRequest || !allSupplementDocumentsUploaded || isSupplementSubmitting) return;
+    if (!hasSupplementCenter || !allSupplementDocumentsUploaded || isSupplementSubmitting) return;
     setIsSupplementSubmitting(true);
     setSupplementError("");
 
     try {
-      await submitSupplement({
-        documents: supplementRequest.requestedDocuments.map((item) => {
-          const uploadedDocument = supplementUploaded[item.id];
+      await Promise.all(supplementRequests.map((requestItem) => submitSupplement({
+        documents: requestItem.requestedDocuments.map((item) => {
+          const uploadedDocument = supplementUploaded[`${requestItem.requestId}:${item.id}`];
           return {
             documentName: item.name,
             documentType: item.id,
@@ -221,11 +295,16 @@ export default function IntakePage() {
             fileSize: uploadedDocument.fileSize
           };
         }),
-        requestId: supplementRequest.requestId
-      });
+        requestId: requestItem.requestId
+      })));
 
       setSubmittedAt(new Date().toLocaleString("zh-CN", { hour12: false }));
       setSupplementSubmitted(true);
+      setResumeCase((current) => current ? {
+        ...current,
+        status: "reviewing",
+        supplementRequests: []
+      } : current);
     } catch (error) {
       console.warn("[AS VISA] Supplement submit failed.", error);
       setSupplementError(error instanceof Error
@@ -259,7 +338,56 @@ export default function IntakePage() {
     );
   }
 
-  if (supplementRequest) {
+  if (resumeCase?.exists && (!hasSupplementCenter || resumeCase.status !== "need_more_docs")) {
+    const statusCopy = resumeStatusCopy[resumeCase.status ?? "submitted"] ?? resumeStatusCopy.submitted;
+
+    return (
+      <main className={`${styles.page} noir-scope`}>
+        <section className={styles.shell} aria-labelledby="resume-title">
+          <header className={styles.header}>
+            <div>
+              <p className={styles.brand}>AS VISA</p>
+              <span>资料办理</span>
+            </div>
+            <strong className={styles.caseChip}>{resumeCase.caseCode ?? "已有案件"}</strong>
+          </header>
+
+          <section className={`${styles.step} ${styles.successStep}`}>
+            <div className={styles.successIcon}>
+              <Check size={30} strokeWidth={2.4} />
+            </div>
+            <h1 id="resume-title">{statusCopy.title}</h1>
+            <p>{statusCopy.description}</p>
+
+            <article className={styles.caseCard}>
+              <div>
+                <span>案件编号</span>
+                <strong>{resumeCase.caseCode ?? "已创建"}</strong>
+              </div>
+              <div>
+                <span>办理类型</span>
+                <strong>{resumeCase.visaType ?? "日本旅游签证"}</strong>
+              </div>
+              <div>
+                <span>当前状态</span>
+                <strong>{statusCopy.title}</strong>
+              </div>
+              <div>
+                <span>后续通知</span>
+                <strong>企业微信</strong>
+              </div>
+            </article>
+
+            <p className={styles.secondaryCopy}>您可以关闭页面，后续进展会通过企业微信通知。</p>
+          </section>
+        </section>
+      </main>
+    );
+  }
+
+  if (hasSupplementCenter) {
+    const supplementCaseCode = resumeCase?.caseCode ?? supplementRequest?.caseCode ?? "补充资料";
+
     return (
       <main className={`${styles.page} noir-scope`}>
         <section className={styles.shell} aria-labelledby="supplement-title">
@@ -268,7 +396,7 @@ export default function IntakePage() {
               <p className={styles.brand}>AS VISA</p>
               <span>补充资料</span>
             </div>
-            <strong className={styles.caseChip}>{supplementRequest.caseCode}</strong>
+            <strong className={styles.caseChip}>{supplementCaseCode}</strong>
           </header>
 
           {!supplementSubmitted ? (
@@ -279,35 +407,42 @@ export default function IntakePage() {
                 <p>无需重新填写基础信息，只需要上传顾问要求补充的文件。</p>
               </div>
 
-              <article className={styles.supplementMessage}>
-                <span>顾问说明</span>
-                <p>{supplementRequest.message}</p>
-              </article>
-
               <div className={styles.documentList}>
-                {supplementRequest.requestedDocuments.map((item) => {
-                  const file = supplementUploaded[item.id];
-                  return (
-                    <article className={styles.documentCard} key={item.id}>
-                      <div className={styles.documentIcon}>
-                        {file ? <Check size={18} strokeWidth={2.4} /> : <FileText size={18} strokeWidth={1.8} />}
-                      </div>
-                      <div className={styles.documentCopy}>
-                        <h2>{item.name}</h2>
-                        <span className={file ? styles.statusUploaded : styles.statusPending}>
-                          {file ? "已上传" : "待上传"}
-                        </span>
-                        <p>{item.requirement}</p>
-                        {file ? <strong>{file.fileName}</strong> : null}
-                      </div>
-                      <label className={file ? styles.reuploadButton : styles.uploadButton}>
-                        <Upload size={15} strokeWidth={1.8} />
-                        {file ? "重新上传" : "上传"}
-                        <input accept="image/*,.pdf" onChange={(event) => handleSupplementUpload(item.id, event)} type="file" />
-                      </label>
+                {supplementRequests.map((requestItem) => (
+                  <section className={styles.summaryCard} key={requestItem.requestId}>
+                    <article className={styles.supplementMessage}>
+                      <span>顾问说明</span>
+                      <p>{requestItem.message}</p>
                     </article>
-                  );
-                })}
+
+                    <div className={styles.documentList}>
+                      {requestItem.requestedDocuments.map((item) => {
+                        const uploadKey = `${requestItem.requestId}:${item.id}`;
+                        const file = supplementUploaded[uploadKey];
+                        return (
+                          <article className={styles.documentCard} key={uploadKey}>
+                            <div className={styles.documentIcon}>
+                              {file ? <Check size={18} strokeWidth={2.4} /> : <FileText size={18} strokeWidth={1.8} />}
+                            </div>
+                            <div className={styles.documentCopy}>
+                              <h2>{item.name}</h2>
+                              <span className={file ? styles.statusUploaded : styles.statusPending}>
+                                {file ? "已上传" : "待上传"}
+                              </span>
+                              <p>{item.requirement}</p>
+                              {file ? <strong>{file.fileName}</strong> : null}
+                            </div>
+                            <label className={file ? styles.reuploadButton : styles.uploadButton}>
+                              <Upload size={15} strokeWidth={1.8} />
+                              {file ? "重新上传" : "上传"}
+                              <input accept="image/*,.pdf" onChange={(event) => handleSupplementUpload(uploadKey, event)} type="file" />
+                            </label>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
               </div>
 
               {supplementMissingDocuments.length > 0 ? (
@@ -458,8 +593,9 @@ export default function IntakePage() {
             </section>
 
             {!requiredInfoComplete ? <p className={styles.helperText}>请先完成必要信息。</p> : null}
-            <Button className={styles.primaryButton} disabled={!requiredInfoComplete} onClick={() => setStep(3)}>
-              下一步，上传资料
+            {submitError ? <p className={styles.submitError}>{submitError}</p> : null}
+            <Button className={styles.primaryButton} disabled={!requiredInfoComplete || isCheckingResume} onClick={handleBasicInfoNext}>
+              {isCheckingResume ? "正在查询案件" : "下一步，上传资料"}
             </Button>
           </section>
         ) : null}
