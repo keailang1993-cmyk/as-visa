@@ -9,6 +9,7 @@ import {
   submitIntake,
   submitSupplement,
   type ActiveSupplementRequest,
+  type ResumeCaseEvent,
   type ResumeCaseResult,
   type ResumeSupplementRequest
 } from "./intakeService";
@@ -118,6 +119,48 @@ const resumeStatusCopy: Record<string, { description: string; title: string }> =
   }
 };
 
+const caseProgressSteps = [
+  { id: "submitted", label: "Intake Submitted" },
+  { id: "reviewing", label: "Reviewing" },
+  { id: "need_more_docs", label: "Supplement Requested" },
+  { id: "supplement_uploaded", label: "Supplement Uploaded" },
+  { id: "processing", label: "Processing" },
+  { id: "completed", label: "Completed" }
+] as const;
+
+const statusEstimatedTime: Record<string, string> = {
+  approved: "预计 1-2 个工作日进入递交流程",
+  completed: "已完成",
+  need_more_docs: "请尽快补充资料，顾问会继续审核",
+  processing: "预计 5-10 个工作日",
+  reviewing: "预计今天 18:00 前完成审核",
+  submitted: "预计今天 18:00 前开始审核"
+};
+
+function getCurrentProgressIndex(status?: string, hasSupplementUploaded?: boolean) {
+  if (status === "completed") return 5;
+  if (status === "approved" || status === "processing") return 4;
+  if (hasSupplementUploaded) return 3;
+  if (status === "need_more_docs") return 2;
+  if (status === "reviewing") return 1;
+  return 0;
+}
+
+function formatEventTime(value?: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("zh-CN", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+function hasSupplementUploadedEvent(events?: ResumeCaseEvent[]) {
+  return Boolean(events?.some((event) => event.title === "Supplement uploaded" || event.title === "补充资料已上传"));
+}
+
 export default function IntakePage() {
   const [step, setStep] = useState<IntakeStep>(1);
   const [info, setInfo] = useState<BasicInfo>(initialInfo);
@@ -125,6 +168,7 @@ export default function IntakePage() {
   const [supplementRequest, setSupplementRequest] = useState<ActiveSupplementRequest | null>(null);
   const [supplementUploaded, setSupplementUploaded] = useState<Record<string, UploadedDocument>>({});
   const [resumeCase, setResumeCase] = useState<ResumeCaseResult | null>(null);
+  const [showSupplementCenter, setShowSupplementCenter] = useState(false);
   const [isCheckingSupplement, setIsCheckingSupplement] = useState(true);
   const [isCheckingResume, setIsCheckingResume] = useState(false);
   const [isSupplementSubmitting, setIsSupplementSubmitting] = useState(false);
@@ -149,6 +193,7 @@ export default function IntakePage() {
       requestId: supplementRequest.requestId
     }] : []);
   const hasSupplementCenter = supplementRequests.length > 0;
+  const shouldShowSupplementCenter = hasSupplementCenter && showSupplementCenter;
   const supplementMissingDocuments = supplementRequests.flatMap((requestItem) => (
     requestItem.requestedDocuments
       .filter((item) => !supplementUploaded[`${requestItem.requestId}:${item.id}`])
@@ -169,6 +214,7 @@ export default function IntakePage() {
     getActiveSupplementRequest({ caseCode, caseId })
       .then((request) => {
         setSupplementRequest(request);
+        setShowSupplementCenter(Boolean(request));
       })
       .catch((error) => {
         console.warn("[AS VISA] Supplement request lookup failed.", error);
@@ -338,26 +384,32 @@ export default function IntakePage() {
     );
   }
 
-  if (resumeCase?.exists && (!hasSupplementCenter || resumeCase.status !== "need_more_docs")) {
+  if (resumeCase?.exists && !shouldShowSupplementCenter) {
     const statusCopy = resumeStatusCopy[resumeCase.status ?? "submitted"] ?? resumeStatusCopy.submitted;
+    const currentProgressIndex = getCurrentProgressIndex(
+      resumeCase.status,
+      hasSupplementUploadedEvent(resumeCase.caseEvents)
+    );
+    const estimatedTime = statusEstimatedTime[resumeCase.status ?? "submitted"] ?? statusEstimatedTime.submitted;
+    const caseEvents = resumeCase.caseEvents ?? [];
 
     return (
       <main className={`${styles.page} noir-scope`}>
-        <section className={styles.shell} aria-labelledby="resume-title">
+        <section className={styles.shell} aria-labelledby="case-center-title">
           <header className={styles.header}>
             <div>
               <p className={styles.brand}>AS VISA</p>
-              <span>资料办理</span>
+              <span>案件中心</span>
             </div>
             <strong className={styles.caseChip}>{resumeCase.caseCode ?? "已有案件"}</strong>
           </header>
 
-          <section className={`${styles.step} ${styles.successStep}`}>
-            <div className={styles.successIcon}>
-              <Check size={30} strokeWidth={2.4} />
+          <section className={styles.step}>
+            <div className={styles.sectionHeader}>
+              <p className={styles.kicker}>Case Center</p>
+              <h1 id="case-center-title">您的签证案件</h1>
+              <p>{statusCopy.description}</p>
             </div>
-            <h1 id="resume-title">{statusCopy.title}</h1>
-            <p>{statusCopy.description}</p>
 
             <article className={styles.caseCard}>
               <div>
@@ -369,14 +421,64 @@ export default function IntakePage() {
                 <strong>{resumeCase.visaType ?? "日本旅游签证"}</strong>
               </div>
               <div>
+                <span>出行国家</span>
+                <strong>{resumeCase.destinationCountry ?? "日本"}</strong>
+              </div>
+              <div>
                 <span>当前状态</span>
                 <strong>{statusCopy.title}</strong>
               </div>
               <div>
-                <span>后续通知</span>
-                <strong>企业微信</strong>
+                <span>预计时间</span>
+                <strong>{estimatedTime}</strong>
               </div>
             </article>
+
+            <section className={styles.progressTracker} aria-label="案件进度">
+              {caseProgressSteps.map((item, index) => {
+                const isActive = index === currentProgressIndex;
+                const isDone = index < currentProgressIndex;
+                return (
+                  <article
+                    className={`${styles.progressStep} ${isActive ? styles.progressStepActive : ""} ${isDone ? styles.progressStepDone : ""}`}
+                    key={item.id}
+                  >
+                    <span>{isDone ? <Check size={13} strokeWidth={2.4} /> : index + 1}</span>
+                    <strong>{item.label}</strong>
+                  </article>
+                );
+              })}
+            </section>
+
+            {resumeCase.status === "need_more_docs" && hasSupplementCenter ? (
+              <Button className={styles.primaryButton} onClick={() => setShowSupplementCenter(true)}>
+                继续补充资料
+              </Button>
+            ) : null}
+
+            <section className={styles.timelineCard} aria-label="案件时间线">
+              <div className={styles.timelineHeader}>
+                <h2>办理动态</h2>
+                <span>{caseEvents.length} 条记录</span>
+              </div>
+
+              {caseEvents.length > 0 ? (
+                <div className={styles.timelineList}>
+                  {caseEvents.map((event) => (
+                    <article className={styles.timelineItem} key={event.id}>
+                      <span className={styles.timelineDot} />
+                      <div>
+                        <strong>{event.title}</strong>
+                        {event.description ? <p>{event.description}</p> : null}
+                        <time>{formatEventTime(event.created_at)}</time>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.emptyTimeline}>暂无新的办理动态。资料更新后，我们会第一时间同步。</p>
+              )}
+            </section>
 
             <p className={styles.secondaryCopy}>您可以关闭页面，后续进展会通过企业微信通知。</p>
           </section>
@@ -385,7 +487,7 @@ export default function IntakePage() {
     );
   }
 
-  if (hasSupplementCenter) {
+  if (shouldShowSupplementCenter) {
     const supplementCaseCode = resumeCase?.caseCode ?? supplementRequest?.caseCode ?? "补充资料";
 
     return (
