@@ -50,11 +50,21 @@ create table if not exists public.supplement_requests (
   completed_at timestamptz null
 );
 
+create table if not exists public.case_notes (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.visa_cases(id) on delete cascade,
+  staff_name text not null,
+  content text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists visa_cases_created_at_idx on public.visa_cases (created_at desc);
 create index if not exists visa_cases_status_idx on public.visa_cases (status);
 create index if not exists visa_documents_case_id_idx on public.visa_documents (case_id);
 create index if not exists case_events_case_id_created_at_idx on public.case_events (case_id, created_at desc);
 create index if not exists supplement_requests_case_id_status_idx on public.supplement_requests (case_id, status);
+create index if not exists case_notes_case_id_created_at_idx on public.case_notes (case_id, created_at desc);
 
 comment on column public.visa_documents.file_path is 'Private Supabase Storage path in as-visa-documents bucket, for example cases/{case_id}/{document_type}/{timestamp}-{safe_file_name}.';
 
@@ -76,10 +86,16 @@ create trigger set_visa_documents_updated_at
 before update on public.visa_documents
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_case_notes_updated_at on public.case_notes;
+create trigger set_case_notes_updated_at
+before update on public.case_notes
+for each row execute function public.set_updated_at();
+
 alter table public.visa_cases enable row level security;
 alter table public.visa_documents enable row level security;
 alter table public.case_events enable row level security;
 alter table public.supplement_requests enable row level security;
+alter table public.case_notes enable row level security;
 
 drop policy if exists "service role can manage visa cases" on public.visa_cases;
 create policy "service role can manage visa cases"
@@ -111,6 +127,13 @@ drop policy if exists "anon can create intake case events" on public.case_events
 drop policy if exists "service role can manage supplement requests" on public.supplement_requests;
 create policy "service role can manage supplement requests"
 on public.supplement_requests
+for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+drop policy if exists "service role can manage case notes" on public.case_notes;
+create policy "service role can manage case notes"
+on public.case_notes
 for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
