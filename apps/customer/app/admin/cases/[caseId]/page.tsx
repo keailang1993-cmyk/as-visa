@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { DocumentPreviewButton } from "../../_components/DocumentPreviewButton";
+import { InternalNotesPanel } from "../../_components/InternalNotesPanel";
 import { SupplementRequestForm } from "../../_components/SupplementRequestForm";
 import { StatusUpdateForm } from "../../_components/StatusUpdateForm";
 import styles from "../../admin.module.css";
@@ -58,7 +59,7 @@ function TimelineIcon({ eventType }: { eventType: string }) {
 
 export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPageProps) {
   const { caseId } = await params;
-  const { caseEvents, documents, error, visaCase } = await getAdminCaseDetail(caseId);
+  const { caseEvents, caseNotes, documents, error, visaCase } = await getAdminCaseDetail(caseId);
 
   if (!error && !visaCase) {
     notFound();
@@ -170,6 +171,8 @@ export default async function AdminCaseDetailPage({ params }: AdminCaseDetailPag
                 <SupplementRequestForm caseId={visaCase.id} />
                 <StatusUpdateForm caseId={visaCase.id} currentStatus={visaCase.status} />
               </section>
+
+              <InternalNotesPanel caseId={visaCase.id} initialNotes={caseNotes} />
             </aside>
           </section>
         ) : null}
