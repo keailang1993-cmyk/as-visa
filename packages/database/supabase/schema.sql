@@ -40,10 +40,21 @@ create table if not exists public.case_events (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.supplement_requests (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.visa_cases(id) on delete cascade,
+  status text not null default 'active',
+  message text not null,
+  requested_documents jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz null
+);
+
 create index if not exists visa_cases_created_at_idx on public.visa_cases (created_at desc);
 create index if not exists visa_cases_status_idx on public.visa_cases (status);
 create index if not exists visa_documents_case_id_idx on public.visa_documents (case_id);
 create index if not exists case_events_case_id_created_at_idx on public.case_events (case_id, created_at desc);
+create index if not exists supplement_requests_case_id_status_idx on public.supplement_requests (case_id, status);
 
 comment on column public.visa_documents.file_path is 'Private Supabase Storage path in as-visa-documents bucket, for example cases/{case_id}/{document_type}/{timestamp}-{safe_file_name}.';
 
@@ -68,6 +79,7 @@ for each row execute function public.set_updated_at();
 alter table public.visa_cases enable row level security;
 alter table public.visa_documents enable row level security;
 alter table public.case_events enable row level security;
+alter table public.supplement_requests enable row level security;
 
 drop policy if exists "service role can manage visa cases" on public.visa_cases;
 create policy "service role can manage visa cases"
@@ -85,7 +97,7 @@ for all
 using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
-drop policy if exists "anon can create intake visa documents" on public.visa_documents;
+drop policy if exists "anon can create intake visa documents" on public.visisa_documents;
 
 drop policy if exists "service role can manage case events" on public.case_events;
 create policy "service role can manage case events"
@@ -95,3 +107,10 @@ using (auth.role() = 'service_role')
 with check (auth.role() = 'service_role');
 
 drop policy if exists "anon can create intake case events" on public.case_events;
+
+drop policy if exists "service role can manage supplement requests" on public.supplement_requests;
+create policy "service role can manage supplement requests"
+on public.supplement_requests
+for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
